@@ -1,7 +1,7 @@
 ---
-title: "Chapter_5_machine_learning_for_regression"
+title: "Chapter_6_machine_learning_for_regression"
 author: "Wandrille"
-date: "2026-08-07"
+date: "2026-11-02"
 output: html_document
 ---
 
@@ -27,38 +27,47 @@ library(ranger)
 
 In that part we will use all the algorithms we have seen previously but in the frame of a regression rather than a classification.
 
-**The difference is that now our target vector (i.e. what we want to predict) is not a class (a discrete variable) but rather a number that can take a continuity of values.**
+**The difference is that now our target vector (i.e. what we want to predict) is not a class (a discrete variable) but rather a number that can take continuous values.**
 
-The algorithms are going to use very similar methods than the ones used in classification, **the main change is the loss function used to train your model and the scoring used to evaluate this model.**
+The algorithms use very similar methods than the ones used in classification, **the main change is the loss function used to train your model and the scoring used to evaluate this model.**
 
-**For classification** we saw two main types of **loss function**:
+**For classification** we saw two main types of **loss functions**:
 
--   (log-)likelihood for models such as the logidsitc regression
--   GINI impurity, for trees
+- (log-)likelihood for models such as the logidsitc regression
+- GINI impurity, for trees
 
-And plenty of **scoring systems**, but at least two in depth:
+And plenty of **scoring systems**, for example:
 
--   Accuracy
--   Area under the ROC curve.
+- Accuracy
+- Area under the ROC curve.
 
 In regression problems the loss functions and the scoring are metrics which you may already know.
 
 The two main **loss functions** that you will minimize while training your model are :
 
--   Mean square error/ quadratic loss/ L2 loss **(MSE)** : $\frac{\Sigma^{n}_{i=1}(y_{i}-\hat{y}_{i})^{2}}{n}$
--   Mean absolute error/ L1 loss **(MAE)** : $\frac{\Sigma^{n}_{i=1}|y_{i}-\hat{y}_{i}|}{n}$
+- Mean square error/ quadratic loss/ L2 loss **(MSE)** : $\frac{\Sigma^{n}_{i=1}(y_{i}-\hat{y}_{i})^{2}}{n}$
+- Mean absolute error/ L1 loss **(MAE)** : $\frac{\Sigma^{n}_{i=1}|y_{i}-\hat{y}_{i}|}{n}$
 
-Where \* $n$ are the number of training examples \* $i$ the $i$-th training example in the data set \* $y_{i}$ the ground truth target value for that $i$-th example and \* $\hat{y_{i}}$ the estimated value of the target for the $i$-th example.
+Where
+
+- $n$ are the number of training examples
+- $i$ the $i$-th training example in the data set
+- $y_{i}$ the ground truth target value for that $i$-th example and
+- $\hat{y_{i}}$ the estimated value of the target for the $i$-th example.
 
 And the **scores**
 
--   value of the minimized loss function used (MSE or MAE)
--   **R squared** : $1-\frac{\Sigma^{n}_{i=1}(y_{i}-\hat{y}_{i})^{2}}{\Sigma^{n}_{i=1}(y_{i}-\bar{y}_{i})^{2}}$: the proportion of the target's variance that's explained by the model
--   **Adjusted R squared** : $1-(1-\frac{\Sigma^{n}_{i=1}(y_{i}-\hat{y}_{i})^{2}}{\Sigma^{n}_{i=1}(y_{i}-\bar{y}_{i})^{2}}\frac{n-1}{n-(k+1)})$ , with k the degree of freedom; similar to R-squared, but takes into account the number of variables in the model.
--   **Max error** : $max(|y_{i}-\hat{y}_{i}|)$
--   **Variance explained** : $1-\frac{Var(\{y_{i}-\bar{y}_{i}\}_{i})}{Var(\{y_{i}\}_{i})}$
+- value of the minimized loss function used (MSE or MAE)
+- **R squared** : $1-\frac{\Sigma^{n}_{i=1}(y_{i}-\hat{y}_{i})^{2}}{\Sigma^{n}_{i=1}(y_{i}-\bar{y}_{i})^{2}}$: the proportion of the target's variance that's explained by the model
+- **Adjusted R squared** : $1-(1-\frac{\Sigma^{n}_{i=1}(y_{i}-\hat{y}_{i})^{2}}{\Sigma^{n}_{i=1}(y_{i}-\bar{y}_{i})^{2}}\frac{n-1}{n-(k+1)})$ , with k the degree of freedom; similar to R-squared, but takes into account the number of variables in the model.
+- **Max error** : $max(|y_{i}-\hat{y}_{i}|)$
+- **Variance explained** : $1-\frac{Var(\{y_{i}-\bar{y}_{i}\}_{i})}{Var(\{y_{i}\}_{i})}$
 
 ------------------------------------------------------------------------
+
+# Meet the data
+
+## DNA methylation and age dataset
 
 We will use a DNA methylation dataset from [Naue etal. 2017](https://www.sciencedirect.com/science/article/pii/S1872497317301643?via%3Dihub), as prepared for another [regression tutorial from the GTN](https://training.galaxyproject.org/training-material/topics/statistics/tutorials/regression_machinelearning/tutorial.html).
 
@@ -86,9 +95,7 @@ print( paste( "test rows :", df_meth_test %>% nrow() ))
 print( df_meth %>% colnames() )
 ```
 
-# A little bit on data exploration for regression
-
-let's check how the different features and the target interact with each others.
+Let's check how the different features and the target interact with each others.
 
 ```{r}
 cor_matrix = cor( df_meth, method = "pearson" )
@@ -201,8 +208,8 @@ for( degree in c(1,2,3,20)){
 }    
 ```
 
--   which degree relationship is appropriate then ?
--   what of the other biomarkers ?
+- which degree relationship is appropriate then ?
+- what of the other biomarkers ?
 
 You guessed it, we come back again to hyper-parameters we have to evaluate in order to find the most appropriate model.
 
@@ -431,18 +438,18 @@ RF_res %>% show_best(metric = 'rmse')
 
 We go back to the potato dataset we introduced in notebook 3.
 
----
+------------------------------------------------------------------------
 
-**Note**: here the data has already been filtered to keep only the top 200 genes (that is still a lot, but manageable ). However often your data will have >10 000 genes, which would create issues in practice (more that just slowing down the training, some models will fail to find a good solution).
+**Note**: here the data has already been filtered to keep only the top 200 genes (that is still a lot, but manageable ). However often your data will have \>10 000 genes, which would create issues in practice (more that just slowing down the training, some models will fail to find a good solution).
 
 solutions include:
 
- * detecting genes with low variance and removing them (you can use [step_rm](https://recipes.tidymodels.org/reference/step_rm.html) to remove variables by name once you have decided which to remove)
- * a preliminary PCA are your friend (use scores adapted to regression)
+- detecting genes with low variance and removing them (you can use [step_rm](https://recipes.tidymodels.org/reference/step_rm.html) to remove variables by name once you have decided which to remove)
+- a preliminary PCA are your friend (use scores adapted to regression)
 
 Anyhow, end of the rent. As I said in this dataset you should be OK (although you could try a PCA if you are curious)
 
----
+------------------------------------------------------------------------
 
 1.  split train and test
 2.  try linear regression (with different degrees if you wish)
@@ -467,12 +474,7 @@ dfTT$Flesh.Colour %>% summary()
 ## your code here
 ```
 
-
-
-
 Solution in `solutions/solution_potato_reg.R`
-
-
 
 # Extra exercise
 
@@ -483,4 +485,3 @@ df_aml = read.csv('../data/gene_drug_sens.csv' , row.names = 1)
 X_aml = df_aml %>% select( c('auc' , colnames(df_aml)[9:ncol(df_aml)] ) )
 X_aml %>% head()
 ```
-

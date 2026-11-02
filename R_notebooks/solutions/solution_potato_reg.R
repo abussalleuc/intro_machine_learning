@@ -90,17 +90,17 @@ coef_df = tidy( final_LR ) %>% filter(term != "(Intercept)") %>%
 potato_recipe = potato_recipe %>% prep()
 
 ## matrix where columns are PCs and rows are original features 
+
 rot_mat <- tidy( potato_recipe , number = 2) %>%
   select(terms, component, value) %>%
   pivot_wider(names_from = component, values_from = value) %>%
-  column_to_rownames("terms") %>%
+  tibble::column_to_rownames("terms") %>%
   as.matrix()
 
 ## one annoyance, in the model coef they use PC01 while in the recipe output
 ## they use PC1
 ## so we need to transform it...
-library(stringr)
-coef_df$term = str_replace( coef_df$term , "([^0-9])0" , "\\1" )
+coef_df$term = stringr::str_replace( coef_df$term , "([^0-9])0" , "\\1" )
 
 original_coefficient = rot_mat[ , coef_df$term ] %*% coef_df$estimate 
 original_coefficient
