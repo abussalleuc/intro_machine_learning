@@ -25,8 +25,8 @@ print(table(heart_test$TenYearCHD ))
 
 ## recipe
 framingham_recipe <- recipe( TenYearCHD ~ . , data = heart_train) %>%
-  step_rose(TenYearCHD) %>%                  # handle imbalance
   step_impute_mean(all_predictors()) %>%   # imputation
+  step_rose(TenYearCHD) %>%                  # handle imbalance
   step_normalize(all_predictors())           # scaling
 
 
@@ -112,7 +112,7 @@ best_model <- LR_res %>% select_best(metric = "roc_auc")
 final_LR <- LR_wf %>% 
   finalize_workflow(best_model) %>% # apply hyper-parameters
   last_fit(split) %>%               # fit with the training data
-  extract_workflow(final_fit)       # extract the workflow
+  extract_workflow()                # extract the workflow
 
 truth = heart_test$TenYearCHD
 pred  = ( final_LR  %>% predict( heart_test ) )$.pred_class

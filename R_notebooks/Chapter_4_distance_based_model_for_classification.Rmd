@@ -1,7 +1,7 @@
 ---
 title: "Chapter_4_distance_based_model_for_classification"
 author: "Wandrille"
-date: "2025-08-05"
+date: "2026-11-02"
 output: html_document
 ---
 
@@ -11,13 +11,14 @@ knitr::opts_chunk$set(echo = TRUE)
 
 In this chapter we will **only talk about classification**. Classifiers associate a transformed set of features to a set of classes (a discrete variable)
 
-![class_reg](../images/class_reg.png)
+![classification vs. regression](../images/class_reg.png)
 
-In this notebook we are going to focus on distance based classification method (opposed to decision tree for example wich works with threshold more than actual distances). The goal is to give you some insight on 4 different levels: 
- - **Best practices**
- - **Intuition on the concepts behind those methods**
- - **How to implement them with tidymodels** 
- - **Intuition on the different parameters that your model need but are not trainable (hyperparameters)**
+In this notebook we are going to focus on distance based classification method (opposed to decision tree for example which works with threshold more than actual distances). The goal is to give you some insight on 4 different levels:
+
+- **Best practices**
+- **Intuition on the concepts behind those methods**
+- **How to implement them with tidymodels**
+- **Intuition on the different parameters that your model need but are not trainable (hyperparameters)**
 
 ```{r}
 library(tidyr)
@@ -30,13 +31,9 @@ library(tidymodels)
 library(vip)
 
 library(themis)
-
-## also requires:
-# * kknn
-
 ```
 
-# Meet the data 
+# Meet the data
 
 ## Binary class dataset : breast cancer
 
@@ -44,7 +41,7 @@ In the cancer dataset you have 569 tumors for which many features have been meas
 
 ```{r}
 BreastCancer <- read.csv("../data/breast_cancer.csv")
-
+ 
 # IMPORTANT: ensure the "label of interest" is the first level of the factor !
 # https://yardstick.tidymodels.org/reference/roc_curve.html#relevant-level
 BreastCancer$malignant = factor( BreastCancer$malignant , levels = c(1,0))
@@ -55,17 +52,17 @@ BreastCancer %>% head()
 
 Columns are:
 
--   **mean.radius** : average cell radius
--   **mean.texture** : average cell texture metric
--   **mean.perimeter** : average cell perimeter
--   **mean.area** : average cell area
--   **mean.smoothness** : average cell smoothness metric
--   **mean.compactness** : average cell compactness metric
--   **mean.concavity** : average cell concavity metric
--   **mean.concave.points** : average cell concavity metric
--   **mean.symmetry** : average cell symmetry
--   **mean.fractal.dimension** : average cell fractal dimension
--   **malignant** : benign (0) or malignant (1)
+- **mean.radius** : average cell radius
+- **mean.texture** : average cell texture metric
+- **mean.perimeter** : average cell perimeter
+- **mean.area** : average cell area
+- **mean.smoothness** : average cell smoothness metric
+- **mean.compactness** : average cell compactness metric
+- **mean.concavity** : average cell concavity metric
+- **mean.concave.points** : average cell concavity metric
+- **mean.symmetry** : average cell symmetry
+- **mean.fractal.dimension** : average cell fractal dimension
+- **malignant** : benign (0) or malignant (1)
 
 ```{r}
 table( BreastCancer$malignant  )
@@ -102,16 +99,14 @@ Then during the testing phase it takes a testing point and checks its `neighbors
 
 **If `neighbors` nearest neighbors are mostly (in majority) from one label then the tested point will be assigned this label**.
 
-The way the `neighbors` **nearest neighbors vote** can be either
+The way the `neighbors` **nearest neighbors vote** can be either:
 
--   uniform (every point as the same importance in the vote) or,
--   distance-based (a point distant to the tested point by a distance d will have a weight of 1/d in the vote).
+- uniform (every point as the same importance in the vote) or,
+- distance-based (a point distant to the tested point by a distance d will have a weight of 1/d in the vote).
 
-![knn](../images/knn.png)
+![schematic representation of KNN voting](../images/knn.png)
 
 [Image from datacamp tutorials](https://www.datacamp.com/community/tutorials/k-nearest-neighbor-classification-scikit-learn)
-
-[Back to the ToC](#toc)
 
 ### Toy dataset: KNN concepts and hyperparameters
 
@@ -192,8 +187,8 @@ This is a first example of the **bias variance trade off.**
 
 We say that:
 
--   the model with k=1 has a **high variance**
--   the model with k=89 has a **high bias**
+- the model with k=1 has a **high variance**
+- the model with k=89 has a **high bias**
 
 ------------------------------------------------------------------------
 
@@ -207,25 +202,23 @@ image source: wikipedia user Brian Amberg
 
 Choices here are:
 
- * `"rectangular"`: each chosen neighbor votes the same (which is the standard unweighted knn)
- * `"triangular"`: each chosen neighbors has a vote strength inversely proportional to the distance
- * `"epanechnikov"` (or beta(2,2))
- * `"biweight"` (or beta(3,3)), 
- * `"triweight"` (or beta(4,4)), 
- * `"cos"`
- * `"gaussian"`
- * `"inv"`
- * `"optimal"` : the default, a weighting scheme which accounts for the number of input dimensions ([Samworth 2012](https://projecteuclid.org/journals/annals-of-statistics/volume-40/issue-5/Optimal-weighted-nearest-neighbour-classifiers/10.1214/12-AOS1049.full))
-
+- `"rectangular"`: each chosen neighbor votes the same (which is the standard unweighted knn)
+- `"triangular"`: each chosen neighbors has a vote strength inversely proportional to the distance
+- `"epanechnikov"` (or beta(2,2))
+- `"biweight"` (or beta(3,3)),
+- `"triweight"` (or beta(4,4)),
+- `"cos"`
+- `"gaussian"`
+- `"inv"`
+- `"optimal"` : the default, a weighting scheme which accounts for the number of input dimensions ([Samworth 2012](https://projecteuclid.org/journals/annals-of-statistics/volume-40/issue-5/Optimal-weighted-nearest-neighbour-classifiers/10.1214/12-AOS1049.full))
 
 ```{r}
-contour_KNN(3,blobs , weight_func = 'rectangular')
+contour_KNN(5,blobs , weight_func = 'rectangular')
 ```
 
 ```{r}
-contour_KNN(3,blobs , weight_func = 'triangular')
+contour_KNN(5,blobs , weight_func = 'triangular')
 ```
-
 
 Do you see what changed?
 
@@ -233,33 +226,29 @@ So here, connecting this to the previous chapter: K and the weighting, which gov
 
 There are many additional hyper-parameters we could consider as well:
 
--   the imputation strategy
--   the normalization strategy
--   dimensionality reduction : how many PCA axes do I keep?
--   choice of the classification algorithm (KNN, logistic regression, ranfom forest, neural network, ...)
+- the imputation strategy
+- the normalization strategy
+- dimensionality reduction : how many PCA axes do I keep?
+- choice of the classification algorithm (KNN, logistic regression, random forest, neural network, ...)
 
 ...
 
-
 ### A metric to score classification : accuracy
 
-One straight forward metric to evaluate our model is the accuracy. Accuracy is only interesting on the test set, even though it can give you some good insight about your model when accuracy is compared between test and training set.
+One straightforward metric to evaluate our model is the accuracy. Accuracy is only interesting on the test set, even though it can give you some good insight about your model when accuracy is compared between test and training set.
 
 But again, the main thing that is going to matter to evaluate your model concern metric evaluated on the test set.
 
 Accuracy is defined as follow : $\frac{TP+TN}{P+N}$
 
--   TP : True Positive
--   TN : True Negative
--   FP : False Positive
--   FN : False Negative
--   P : Positive : $P=TP+FN$
--   N : Negative : $N=TN+FP$
+- TP : True Positive
+- TN : True Negative
+- FP : False Positive
+- FN : False Negative
+- P : Positive : $P=TP+FN$
+- N : Negative : $N=TN+FP$
 
-
-In code, we can compute it from a data.frame with the `accuracy` function,
-and with `accuracy_vec` if we have two vectors:
-
+In code, we can compute it from a data.frame with the `accuracy` function, and with `accuracy_vec` if we have two vectors:
 
 ```{r}
 example = data.frame( truth = as.factor(c(0,0,0,1,1,1)),
@@ -269,10 +258,10 @@ example = data.frame( truth = as.factor(c(0,0,0,1,1,1)),
 
 example %>% accuracy( truth , pred )
 ```
+
 ```{r}
 accuracy_vec( example$truth , example$pred )
 ```
-
 
 ### finding the best hyper-parameter set with KNN
 
@@ -281,8 +270,6 @@ We implement here the procedure we have seen with the potato dataset in the prev
 **But** we will have to adapt a few things.
 
 First during the train/test split, we use the `strata` argument to ensure that we have the same proportion of each class in the train and the test set.
-
-
 
 ```{r}
 split <- initial_split(blobs, prop = 0.7 , strata = label)
@@ -300,26 +287,25 @@ table( X_test$label )
 
 Then we proceed with the hyper-parameter optimization.
 
-**But** (there's always a but), we need to change the metric we are optimizing.
+We re-use the code of the last notebook, **but** (there's always a but), we need to change the metric we are optimizing.
 
 Before we were optimizing for $R^2$, which appropriate for regression tasks, but now we will switch it for **accuracy**.
 
-
 **micro-exercise:** Change the code below so the tuning :
 
- * operates on accuracy instead of $R^2$.
- * explores hyper-parameters of the KNN (*hint: look at the documentation for [grid_regular](https://dials.tidymodels.org/reference/grid_regular.html)*):
-     * `weight_func` : try rectangular, triangular, and optimal
-     * `neighbors` : can take values between 1 and 30
+- operates on accuracy instead of $R^2$.
+- explores hyper-parameters of the KNN (*hint: look at the documentation for [grid_regular](https://dials.tidymodels.org/reference/grid_regular.html)*):
+  - `weight_func` : try rectangular, triangular, and optimal
+  - `neighbors` : can take values between 1 and 30
 
-```
+```         
 # we add a normalization step, so we need a recipe:
 blobs_recipe <- recipe( label ~ . , data = X_train) %>%
   step_normalize(all_predictors())
 
 blobs_model <- nearest_neighbor(neighbors = tune(),
-                              weight_func = tune(),
-                              mode = 'classification')
+                                weight_func = tune(),
+                                mode = 'classification')
 
 blobs_wf <- 
   workflow() %>%
@@ -339,12 +325,14 @@ blobs_res <-
     resamples = folds,
     grid = blobs_grid,
     metrics = ... ## add the proper score here
-    )
+  )
+```
+
+```{r}
+## write your solution here
 ```
 
 **Correction in `solutions/solution_knn.R`**
-
-
 
 ```{r}
 blobs_metrics <- blobs_res %>% collect_metrics()
@@ -352,7 +340,6 @@ blobs_metrics <- blobs_res %>% collect_metrics()
 ggplot(blobs_metrics, aes( x = neighbors , y = mean , color = weight_func)) + 
   geom_line()
 ```
-
 
 ```{r}
 blobs_res %>% 
@@ -363,6 +350,7 @@ blobs_res %>%
 best_model <- blobs_res %>% select_best(metric = "accuracy")
 best_model
 ```
+
 ```{r}
 final_wf <- 
   blobs_wf %>% 
@@ -378,23 +366,21 @@ final_fit %>%
 
 We see that on top of accuracy, yardstick also computes by default the :
 
- * ROC AUC : area under the ROC curve (more on that later)
- * brier score: equivalent to MSE for classification, the best value is 0
+- ROC AUC : area under the ROC curve (more on that later)
+- brier score: equivalent to MSE for classification, the best value is 0
 
 ```{r}
 test_predictions = final_fit %>% collect_predictions()
 test_predictions %>% head()
 ```
+
 ```{r}
 table( test_predictions$.pred_class  , test_predictions$label )
 ```
 
-
 Note here that the test set very small size (only 9 points per category) which gives us a very **coarse grained estimate of test accuracy**.
 
 > You can read more on this subject in this [blog post](https://www.r-bloggers.com/2021/01/what-is-a-good-test-set-size/).
-
-
 
 ### important considerations: leakage
 
@@ -406,11 +392,9 @@ We say that no information coming from the test set should leak into the trainin
 
 To avoid **leakage** you should ensure your test set is absent from even the early stages of your pipeline, such as imputation, normalization, or feature selection.
 
-
 ## applying all this to the cancer dataset
 
 **We first divide our data into a train and a test set:**
-
 
 ```{r}
 split <- initial_split(BreastCancer, strata = malignant)
@@ -421,14 +405,13 @@ print( paste('train:',nrow( BC_train ) ) )
 print( paste('test :',nrow( BC_test ) ) )
 ```
 
-
 ```{r}
 breast_recipe <- recipe( malignant ~ . , data = BC_train) %>%
   step_normalize(all_predictors())
 
 breast_model <- nearest_neighbor(neighbors = tune(),
-                              weight_func = tune(),
-                              mode = 'classification') 
+                                 weight_func = tune(),
+                                 mode = 'classification') 
 
 breast_wf <- 
   workflow() %>%
@@ -451,7 +434,7 @@ breast_KNN_res <-
   tune_grid(
     resamples = folds,
     grid = breast_grid
-    )
+  )
 ```
 
 ```{r}
@@ -459,13 +442,13 @@ breast_KNN_res %>%
   show_best(metric = "accuracy", n = 5)
 ```
 
-
 Do accuracy and ROC AUC coincide?
 
 ```{r}
 tmp = breast_KNN_res %>% collect_metrics(type='wide')
 ggplot(tmp, aes(x=accuracy,y=roc_auc)) + geom_point()
 ```
+
 ```{r}
 breast_KNN_res %>% 
   show_best(metric = "roc_auc", n = 5)
@@ -479,6 +462,7 @@ ggplot( tmp , aes(x=neighbors , y = mean , col=.metric , lty=weight_func ) ) + g
 So there it is: we have applied cross-validation to explore the space of hyper-parameters and we have gotten hyper-parameter values that provide a good bias-variance trade-off.
 
 ------------------------------------------------------------------------
+
 **Important note:**
 
 But, before we go to the next part, there is one important thing we forgot in this pipeline: like PCA or KMeans, the **KNN algorithm relies on distances** between points.
@@ -488,27 +472,25 @@ Meaningful distances can only be computed if all features follow a comparable sc
 ```{r}
 BreastCancer %>% head()
 ```
+
 The implementation of KNN that tidymodels relies on does normalization by default, but:
 
-1. this may not be the case in other models/implementations
-2. sometimes normalization others than the simple "center and scale" are more relevant
+1.  this may not be the case in other models/implementations
+2.  sometimes normalization others than the simple "center and scale" are more relevant
 
 That is why I tend to still put an explicit `step_normalize(all_predictors())` in the recipe.
 
-
 ### A few important points
 
--   instead of a regular grid of hyper-parameter values, we can explore [random values](https://dials.tidymodels.org/reference/grid_regular.html). 
--   K-fold Cross-Validation is inherently stochastic, it is common to repeat it many times (see the `repeats` argument of `vfold_cv()`)
--   Accuracy is not always the most appropriate metric (but more on that later...)
-
-
+- instead of a regular grid of hyper-parameter values, we can explore [random values](https://dials.tidymodels.org/reference/grid_regular.html).
+- K-fold Cross-Validation is inherently stochastic, it is common to repeat it many times (see the `repeats` argument of `vfold_cv()`)
+- Accuracy is not always the most appropriate metric (but more on that later...)
 
 # Logistic regression
 
 **The main hypothesis of logistic regression is that the log odds ratio of the probability that a point is part of a certain class follows a linear combination of the features describing this point.** This is equivalent to the assumption that the two classes are linearly separable and that the log odds ratio increases linearly with the distance from the separating line.
 
-Let's say you only have two classes and so your target variable can only take two values $y_{i} \in\{1,0\}$. Let's define $p(\pmb{x})=P(y=1)$ the probability than your datapoint $\pmb{x}$ belongs to class 1. Let's also say that you have $M$ features to describe a point $\{\pmb{x}_{i}\}_{i=1,...,M}$. And that you have N points.
+Let's say you only have two classes and so your target variable can only take two values $y_{i} \in\{1,0\}$. Let's define $p(\pmb{x})=P(y=1)$ the probability than your data point $\pmb{x}$ belongs to class 1. Let's also say that you have $M$ features to describe a point $\{\pmb{x}_{i}\}_{i=1,...,M}$. And that you have N points.
 
 Then we make the hypothesis that:
 
@@ -518,40 +500,41 @@ which translates to
 
 $p(\pmb{x}|y=1)=\frac{1}{1+e^{-(w_{0}+\pmb{x}\cdot\pmb{w})}}$
 
-![logreg](../images/lr.png)
+![logistic regression underlying model](../images/lr.png)
 
-**So the probability that your datapoint is in class 1 is the logistic function (sigmoid) applied to the linear combination of features.** The larger the weights $\pmb{w}$ the steeper the change between the two classes. 
-
+**So the probability that your data point is in class 1 is the logistic function (sigmoid) applied to the linear combination of features.** The larger the weights $\pmb{w}$ the steeper the change between the two classes.
 
 Unlike KNN the logistic regression model provides valuable information on the importance of features for the classification. The bigger the absolute value of the weight $w_{i}$ associated with a feature, the more important this feature is to discriminate between your classes (supposed that features are normalized and mapped onto a similar scale).
 
 Fitting a logistic regression model corresponds to optimizing the loss function
 
-$\pmb{w},w_{0}=argmin_{\pmb{w},w_{0}}\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y})$ <br><br> $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y})=\Sigma^{N}_{i=1}y_{i}\log(p(\pmb{x}_i|y=1))+(1-y_{i})\log(p(\pmb{x}_i|y=0))$
+$\pmb{w},w_{0}=argmin_{\pmb{w},w_{0}}\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y})$
 
-So, now the way we get the w is from fitting our distribution of probability that a point is in class 1. If the number of features is high and there is a significant amount of non-informative features, the fitting procedure can become unstable. What happens is that some weights of non-informative features may become very large in order to minimize the loss function on the training data, which may lead to reduced performance on the test data (overfitting).
+$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y})=\Sigma^{N}_{i=1}y_{i}\log(p(\pmb{x}_i|y=1))+(1-y_{i})\log(p(\pmb{x}_i|y=0))$
 
-In order to avoid this situation we can add a penalty to the loss function that avoids that weights $w_{i}$ become too large. In ML three such penalties are commonly used:
+So, now the way we get the $w$ is from fitting our distribution of probability that a point is in class 1. If the number of features is high and there is a significant amount of non-informative features, the fitting procedure can become unstable. What happens is that some weights of non-informative features may become very large in order to minimize the loss function on the training data, which may lead to reduced performance on the test data (overfitting).
 
-$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \frac{1}{C}\Sigma^{N}_{i=1}|w_{i}|$ , l1 regularization (Lasso) C being the inverse of the weight that you put on that regularization
+In order to avoid this situation we can add a **penalty to the loss function** that prevents weights $w_{i}$ from becoming too large. In ML three such penalties are commonly used:
 
-$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \frac{1}{C}\Sigma^{N}_{i=1}w_{i}^{2}$ , l2 regularization (Ridge)
+$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}|w_{i}|$ , L1 regularization (Lasso)
 
-$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \frac{1}{C}\Sigma^{N}_{i=1}(\alpha|w_{i}|+(1-\alpha)w_{i}^{2})$ , elasticnet
+$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}w_{i}^{2}$ , L2 regularization (Ridge)
+
+$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}(\rho|w_{i}|+(1-\rho)w_{i}^{2})$ , elasticnet
+
+Where $\alpha$ is the weight of the regularization
 
 For a deeper understanding of those notions :
 
 - [datacamp tutorial](https://www.datacamp.com/community/tutorials/tutorial-ridge-lasso-elastic-net)
 
+- **L1 (lasso)** regularization produces many zero weights. It is useful for the case where you suspect that only a few features are informative.
 
--   **L1 (lasso)** regularization produces many zero weights. It is useful for the case where you suspect that only a few features are informative.
-
--   **L2 (ridge)** regularization leads to many features with small, but non-zero weights.
+- **L2 (ridge)** regularization leads to many features with small, but non-zero weights.
 
 The L1 regularization may have more bias, and the L2 more variance.
 
-The elasticnet interpolates between these two situations at the cost of having and additional parameter $\alpha$.
-
+The elasticnet interpolates between these two situations at the cost of having and additional parameter $\rho$.
 
 Let's look at the probability curve of a logistic regression on a simplified version of the cancer data where we keep a single feature:
 
@@ -571,14 +554,14 @@ for(P in c(0.01,0.1,0.5)){
                       engine = "glmnet",
                       penalty = P,
                       mixture = 0 )
-
+  
   radius_wf <- workflow() %>%
     add_model( LR ) %>%
     add_recipe( recipe_radius ) %>% 
     fit( data = BC_train  )
   
   mock_data[ paste0('pred_',P)  ] <- (radius_wf %>% predict( mock_data , 
-                                                     type='prob'  ))$.pred_1 
+                                                             type='prob'  ))$.pred_1 
   
 }
 
@@ -594,15 +577,14 @@ ggplot(mock_data_long , aes( x = mean.radius , y = proba , col = penalty ) ) +
 
 ## logistic regression on the breast cancer dataset
 
-
 ```{r}
 breast_recipe <- recipe( malignant ~ . , data = BC_train) %>%
   step_normalize(all_predictors())
 
 breast_model <- logistic_reg( mode = "classification",
-                      engine = "glmnet",
-                      penalty = tune(),
-                      mixture = tune() )
+                              engine = "glmnet",
+                              penalty = tune(),
+                              mixture = tune() )
 
 breast_wf <- 
   workflow() %>%
@@ -624,14 +606,13 @@ breast_LR_res <-
   tune_grid(
     resamples = folds,
     grid = breast_grid
-    )
+  )
 ```
 
 ```{r}
 breast_LR_res %>% 
   show_best(metric = "accuracy", n = 5)
 ```
-
 
 ```{r}
 breast_LR_res %>% 
@@ -642,6 +623,7 @@ breast_LR_res %>%
 ```
 
 We could now compare this to the best KNN classifier we obtained:
+
 ```{r}
 breast_KNN_res %>% 
   collect_metrics(type='wide') %>% 
@@ -656,8 +638,7 @@ Let's check how the logistic regression actually discriminates the two classes w
 
 Or said differently : **what can we learn from our model**, apart from pure classification?
 
-In logistic regression the importances are derived from the model coefficients.
-We could extract them manually, but alternatively the `vip` (**v**ariable **i**mportance **p**lots) can help us.
+In logistic regression the importances are derived from the model coefficients. We could extract them manually, but alternatively the `vip` (**v**ariable **i**mportance **p**lots) can help us.
 
 ```{r}
 ## choose a combination of hyperparameter
@@ -666,7 +647,7 @@ best_model <- breast_LR_res %>% select_best(metric = "accuracy")
 final_LR <- breast_wf %>% 
   finalize_workflow(best_model) %>% # apply hyper-parameters
   last_fit(split) %>%               # fit with the training data
-  extract_workflow(final_fit)       # extract the workflow
+  extract_workflow()                # extract the workflow
 
 
 final_LR %>% 
@@ -674,8 +655,6 @@ final_LR %>%
   vi()# vip() for plotting
 
 ```
-
-
 
 ## Imbalanced dataset and alternative metrics
 
@@ -711,14 +690,14 @@ for(P in c(0.01,0.1,1)){
                       engine = "glmnet",
                       penalty = P,
                       mixture = 0 )
-
+  
   blobs2_wf <- workflow() %>%
     add_model( LR ) %>%
     add_recipe( recipe_b2 ) %>% 
     fit( data = blobs2  )
   
   mock_data[ paste0('pred_',P)  ] <- (blobs2_wf %>% predict( mock_data , 
-                                                     type='prob'  ))$.pred_A
+                                                             type='prob'  ))$.pred_A
   
 }
 
@@ -734,20 +713,19 @@ ggplot(mock_data_long , aes( x = x , y = proba , col = penalty ) ) +
 
 You can see that now the point where the probability curves for different alpha converge is not even close to 0.5.
 
-Also, the probability says fairly low even at the right end of the plot.
-
+Also, the probability stays fairly low even at the right end of the plot.
 
 ```{r}
 blob_fit = function(data , penalty){
-
+  
   LR <- logistic_reg( mode = "classification",
-                        engine = "glmnet",
-                        penalty = penalty,
-                        mixture = 0 )
+                      engine = "glmnet",
+                      penalty = penalty,
+                      mixture = 0 )
   
   fit <- LR %>%
-      fit( label ~ . , data = data  )
-
+    fit( label ~ . , data = data  )
+  
   return(fit)
 }
 
@@ -758,12 +736,9 @@ print(paste('accuracy:',accuracy_vec(truth , pred)))
 conf_mat( table( truth , pred ) )
 ```
 
-
-
-
 So, most of the class A samples are miss-classified (22/30), but we still get a very high accuracy...
 
-That is because, by contruction, both the **logistic regression and accuracy score do not differentiate False Positive and False Negative**.
+That is because, by construction, both the **logistic regression and accuracy score do not differentiate False Positive and False Negative**.
 
 And the problem gets worse the more imbalance there is :
 
@@ -781,7 +756,7 @@ for( n2 in seq(5,300,5) ){
   n2_ratio = c(n2_ratio,n2/300)
   ACC = c(ACC, accuracy_vec(truth , pred))
   RECALL = c(RECALL,recall_vec(truth , pred ))
-
+  
 }
 
 tmp = data.frame( n2_ratio = n2_ratio , 
@@ -792,7 +767,6 @@ tmp = data.frame( n2_ratio = n2_ratio ,
 
 ggplot(tmp , aes(x=n2_ratio,y=value , col=metric)) + geom_line()
 ```
-
 
 ```{r}
 
@@ -807,24 +781,23 @@ for( n2 in seq(5,300,5) ){
   
   truth = blobs2$label
   pred  = ( blob_fit(blobs2 , 0.01 )  %>% predict( blobs2 ) )$.pred_class
-
+  
   n2_ratio = c(n2_ratio,n2/300)
   acc = c(acc, accuracy_vec(truth , pred))
   rec = c(rec,recall_vec(truth , pred))
   bal_acc = c(bal_acc, bal_accuracy_vec(truth , pred))
   f1 = c(f1,f_meas_vec(truth , pred))
-
+  
   
   
 }
 
 tmp = data.frame( n2_ratio , acc, rec, bal_acc,f1 ) %>% pivot_longer( 2:5 , 
-                                                      names_to = 'metric',
-                                                      values_to = 'value')
+                                                                      names_to = 'metric',
+                                                                      values_to = 'value')
 
 ggplot(tmp , aes(x=n2_ratio,y=value , col=metric)) + geom_line()
 ```
-
 
 ### setting the event of interest
 
@@ -868,22 +841,22 @@ blobs2 <- blobs2 %>%
   mutate(
     case_wts = ifelse(label == "A", wgtA,  wgtB),
     case_wts = importance_weights(case_wts)
-  )
+  ) ## adding case weights to the workflow
 
 
 lr_spec <- 
   logistic_reg(penalty = 0.01, mixture = 0) %>% 
   set_engine("glmnet")
 
-recipe_b2 <- recipe( label ~. , data = blobs2) %>%
+recipe_b2 <- recipe( label ~ . , data = blobs2) %>%
   step_normalize(all_predictors())
 
 lr_wflow <- 
   workflow() %>% 
   add_model(lr_spec) %>% 
   add_recipe(recipe_b2) %>%
-  add_case_weights(case_wts)
-  
+  add_case_weights(case_wts) ## adding case weights to the workflow
+
 lr_wflow <- lr_wflow %>% fit( blobs2)
 
 truth = blobs2$label
@@ -896,8 +869,14 @@ print(paste('recall class B:',recall_vec(truth , pred , event_level = 'second'))
 conf_mat( table( truth , pred ) )
 ```
 
+### remedy2: sub/over-sampling
 
-### remedy2: subsampling
+the recipe step `step_rose()` (from the [themis](https://themis.tidymodels.org/index.html) library) can balance your data by creating synthetic new samples, sampled in the neighborhood of existing data points.
+
+Simpler alternative exists, such as:
+
+- `step_upsample()`: replicate existing data points
+- `step_downsample()`: remove existing data points
 
 ```{r}
 blobs2 = make2blobs(3000,30)
@@ -914,7 +893,7 @@ cls_metrics <- metric_set(accuracy,
                           bal_accuracy,
                           recall,
                           metric_tweak("recall_second", recall , event_level='second')
-                          )
+)
 
 lr_wflow <- 
   workflow() %>% 
@@ -929,7 +908,9 @@ lr_res <- fit_resamples(
 
 collect_metrics(lr_res)
 ```
+
 *Reminder*: without the ROSE step we get:
+
 ```{r}
 lr_wflow <- 
   workflow() %>% 
@@ -945,8 +926,6 @@ lr_res <- fit_resamples(
 collect_metrics(lr_res)
 ```
 
-
-
 ### ROC curve
 
 ```{r}
@@ -960,6 +939,7 @@ blobs_roc_curve <- fit %>% predict( blobs2 , type='prob' ) %>%
 
 blobs_roc_curve
 ```
+
 ```{r}
 blobs_roc_curve %>% autoplot()
 ```
@@ -968,16 +948,16 @@ blobs_roc_curve %>% autoplot()
 blobs_roc_curve[ which(blobs_roc_curve$.threshold >= 0.5)[1] , ]
 ```
 
-### muliclass context
+### multiclass context
 
 Many of the models and metrics base definition are based on a binary context (0/1, control/treatment, benign/malignant), and sometimes on a single specific category of interest (recall, roc auc, f1,...).
 
 But often we are in context where we have more than two categories to consider.
 
 ```{r}
-cat = rep(c(1,2,3),c(60,30,10)) 
+cat = rep(c(1,2,3),c(60,30,20)) 
 blobs = data.frame( x = rnorm( 100  ) + cat,
-                    y = rnorm( 100  ) + c(0,1,0)[cat],
+                    y = rnorm( 100  ) + c(0,1,-2)[cat],
                     label = as.factor(cat)
 )
 ggplot(blobs , aes(x=x,y=y,col=label)) + geom_point()
@@ -1003,19 +983,17 @@ table( LR %>% predict( blobs ) )
 
 For metrics, we have to consider several possibilities when in a multiclass scenario:
 
- * **no change** : accuracy for example, extends naturally to multiclass (because it does not differentiate between types of errors)
+- **no change** : accuracy for example, extends naturally to multiclass (because it does not differentiate between types of errors)
 
- * **macro-averaging** : compute the metric independently for each class, and then average the results. NB: all classes get the same weight
-    
- * **weighted macro-averaging** : same as macro-average, but the class metrics are weighted by the number of observation in each class
- 
- * **micro-averaging** : determines counts of TP,FN, ... independently, then pulls these numbers across all classes to compute a metric
- 
- * **specific implementation**: some metrics have their special multiclass algorithm. You will have to check their specific documentation to know more
- 
+- **macro-averaging** : compute the metric independently for each class, and then average the results. NB: all classes get the same weight
 
-Micro-averaging and weighted macro-averaging will give more importance to the most frequent classes.
-(Unweighted) macro-averaging "corrects" this by giving equal weight to each classes.
+- **weighted macro-averaging** : same as macro-average, but the class metrics are weighted by the number of observation in each class
+
+- **micro-averaging** : determines counts of TP,FN, ... independently, then pulls these numbers across all classes to compute a metric
+
+- **specific implementation**: some metrics have their special multiclass algorithm. You will have to check their specific documentation to know more
+
+Micro-averaging and weighted macro-averaging will give more importance to the most frequent classes. (Unweighted) macro-averaging "corrects" this by giving equal weight to each classes.
 
 Note that in some case this correction is desirable, but in some others it may not be appropriate (e.g, where you just care about the number of errors irrespective of the class).
 
@@ -1025,7 +1003,6 @@ lr_blobs_aug <- augment( LR , blobs)
 table( lr_blobs_aug$label , lr_blobs_aug$.pred_class ) 
 ```
 
-
 ```{r}
 ## accuracy : no change
 lr_blobs_aug %>% accuracy( truth = label,  .pred_class )
@@ -1034,6 +1011,7 @@ lr_blobs_aug %>% accuracy( truth = label,  .pred_class )
 We will demonstrate the multiclass options with recall (TP/(TP+FN)).
 
 Let's quickly compute the recall for each class by hand first:
+
 ```{r}
 tbl = table( lr_blobs_aug$label , lr_blobs_aug$.pred_class ) 
 for( c in 1:3){
@@ -1041,11 +1019,11 @@ for( c in 1:3){
 }
 ```
 
-
 ```{r}
 ## recall : macro (default)
 lr_blobs_aug %>% recall( truth = label,  .pred_class )
 ```
+
 ```{r}
 ## recall : macro weighted
 lr_blobs_aug %>% recall( truth = label,  .pred_class , estimator = "macro_weighted")
@@ -1062,25 +1040,20 @@ Similarly, when plotting a ROC curve we have to adapt to the multiclass setting:
 lr_blobs_aug %>% roc_curve( truth = label, c(.pred_1, .pred_2, .pred_3) ) %>% autoplot()
 ```
 
-
-
-
 ## micro-exercise: logistic-regression
 
 Now that you know about imbalance, adapt the code below to optimize the hyper-parameters of a logistic regression classifier on the cancer dataset to optimize the F1 score and properly account for imbalance.
 
-> **IMPORTANT NOTE:* you may get some warning about precision computation in some case. 
-> These are caused by some high penalty values. You can generally ignore them as long as at least some of the penalty values in the grid produce some results.
-
+> **IMPORTANT NOTE:** you may get some warning about precision computation in some case. These are caused by some high penalty values. You can generally ignore them as long as at least some of the penalty values in the grid produce some results.
 
 ```{r}
 breast_recipe <- recipe( malignant ~ . , data = BC_train) %>%
   step_normalize(all_predictors())
 
 breast_model <- logistic_reg( mode = "classification",
-                      engine = "glmnet",
-                      penalty = tune(),
-                      mixture = tune() )
+                              engine = "glmnet",
+                              penalty = tune(),
+                              mixture = tune() )
 
 breast_wf <- 
   workflow() %>%
@@ -1100,26 +1073,22 @@ breast_LR_res <-
   tune_grid(
     resamples = folds,
     grid = breast_grid
-    )
+  )
 
 
 breast_LR_res %>% 
   show_best(metric = "accuracy", n = 5)
 ```
 
----
+------------------------------------------------------------------------
 
 Solution in `solutions/solution_imbalance.R`
 
----
+------------------------------------------------------------------------
 
-
-
-
-# Exercise: predicting 10 year coronary heart disease outcome 
+# Exercise: predicting 10 year coronary heart disease outcome
 
 The [framingham dataset](https://datacatalog.med.nyu.edu/dataset/10046) links some patient features to their risk to develop a heart disease.
-
 
 ```{r}
 framingham = read.csv( '../data/framingham.csv' )
@@ -1127,6 +1096,7 @@ framingham$TenYearCHD = factor( framingham$TenYearCHD , levels = c(1,0))
 framingham <- framingham %>% mutate_if(is.integer, as.numeric)
 framingham %>% head()
 ```
+
 ```{r}
 table(framingham$TenYearCHD)
 ```
@@ -1135,14 +1105,15 @@ table(framingham$TenYearCHD)
 str(framingham)
 ```
 
-Build and optimize a classifier to predict the column `'TenYearCHD'` (dependent variable : ten year risk of coronary heart disease). 
+Build and optimize a classifier to predict the column `'TenYearCHD'` (dependent variable : ten year risk of coronary heart disease).
 
- * use a KNN classifier or Logistic regression, ideally, compare them and choose the best. 
- * this dataset has some missing values, decide how you want to handle them. 
- * which metric do you want to use here?
+- use a KNN classifier or Logistic regression, ideally, compare them and choose the best.
 
+- this dataset has some missing values, decide how you want to handle them.
 
-**Note:** This is not an easy problem. **Do not despair if you do not get great performance out of your model, but focus on respecting best practices** (avoid leakage, account for imbalance,...)
+- which metric do you want to use here?
+
+  **Note:** This is not an easy problem. **Do not despair if you do not get great performance out of your model, but focus on respecting best practices** (avoid leakage, account for imbalance,...)
 
 ------------------------------------------------------------------------
 
@@ -1150,8 +1121,4 @@ Build and optimize a classifier to predict the column `'TenYearCHD'` (dependent 
 # your code here:
 ```
 
-
-
-
 **Solution** in `solutions/solution_framingham.R`
-

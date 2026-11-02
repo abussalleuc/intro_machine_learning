@@ -1,5 +1,5 @@
 breast_recipe <- recipe( malignant ~ . , data = BC_train) %>%
-  step_rose( malignant ) %>%  # add subsampling step
+  step_rose( malignant ) %>%  # add over-sampling step
   step_normalize(all_predictors()) 
 
 
