@@ -112,6 +112,7 @@ The way the `neighbors` **nearest neighbors vote** can be either:
 
 ### Toy dataset: KNN concepts and hyperparameters
 
+#### Example data
 ```{r}
 set.seed(123)
 blob1 = data.frame( x = rnorm(30 , mean = -7 ),
@@ -129,7 +130,8 @@ blobs <- blobs %>% mutate( label = as.factor(label) )
 ggplot(blobs, aes(x=x,y=y,col=label)) + geom_point()
 ```
 
-Fitting a KNN classifier with tidymodel looks like this:
+#### Fitting a KNN classifier
+Using tidymodel, it looks like this:
 
 ```{r}
 # https://parsnip.tidymodels.org/reference/nearest_neighbor.html
@@ -141,7 +143,8 @@ pred <- KNN %>% predict(new_data = blobs)
 table( blobs$label , pred$.pred_class ) 
 ```
 
-Let's look at the effect of the number of neighbors:
+#### Varying the number of neighbours
+Let's look at the influence of the number of neighbors:
 
 ```{r}
 contour_KNN <- function(K,data,...){
@@ -194,6 +197,7 @@ We say that:
 
 ------------------------------------------------------------------------
 
+#### Vote weighting
 Another parameter is **how voting is done**.
 
 This is controlled by the `weight_func` argument which defines a *kernel* weighting neighbors according to their distances.
