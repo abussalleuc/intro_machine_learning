@@ -9,16 +9,17 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-In this chapter we will **only talk about classification**. Classifiers associate a transformed set of features to a set of classes (a discrete variable)
+In this chapter, we will **only talk about classification**. Classifiers associate a transformed set of features to a set of classes (a discrete variable).
 
-![classification vs. regression](../images/class_reg.png)
+![Classification vs. regression](../images/class_reg.png)
 
-In this notebook we are going to focus on distance based classification method (opposed to decision tree for example which works with threshold more than actual distances). The goal is to give you some insight on 4 different levels:
+In this notebook, we are going to focus on distance-based classification methods 
+(as opposed to, for example, decision trees, which work with thresholds rather than actual distances). The goal is to give you insight on 4 different levels:
 
 - **Best practices**
 - **Intuition on the concepts behind those methods**
 - **How to implement them with tidymodels**
-- **Intuition on the different parameters that your model need but are not trainable (hyperparameters)**
+- **Intuition on the different parameters that your model needs, but that are not trainable (hyperparameters)**
 
 ```{r}
 library(tidyr)
@@ -28,16 +29,18 @@ library(gridExtra)
 library(pheatmap)
 
 library(tidymodels)
-library(vip)
+library(vip) # install.packages("vip", repos = c("https://bgreenwell.r-universe.dev", "https://cloud.r-project.org"))
+library(kknn) 
 
 library(themis)
+library(glmnet)
 ```
 
 # Meet the data
 
 ## Binary class dataset : breast cancer
 
-In the cancer dataset you have 569 tumors for which many features have been measured. The goal is to predict if the tumor is malignant or not.
+In the cancer dataset, there are 569 tumors for which many image-based features have been measured. The goal is to predict if the tumor is malignant or not.
 
 ```{r}
 BreastCancer <- read.csv("../data/breast_cancer.csv")
@@ -70,39 +73,38 @@ table( BreastCancer$malignant  )
 
 So, there is a slight over-representation of benign tumors.
 
-```{r}
-cor_matrix = cor( BreastCancer[ , -11], method = "pearson" )
+```{r fig.width=6, fig.height=6}
+cor_matrix = cor( 
+  BreastCancer[ , !colnames(BreastCancer) == "malignant" ], method = "pearson" )
 palette <- colorRampPalette(c("blue","white","red"))(100)
 pheatmap(cor_matrix,
          display_numbers = TRUE,
           color=palette, breaks=seq(-1,1,length.out=100))
 ```
 
-So it looks some of these features are extremely correlated, so we may drop some of the most egregious cases
+So it looks some of these features are extremely correlated, so we may drop some of the most egregious cases:
 
 ```{r}
 BreastCancer <- BreastCancer %>% select( !c(mean.area,mean.perimeter,mean.concave.points)  ) 
-
 ```
 
-> here we do this manually, but it is also possible to add a [high correlation filter step](https://recipes.tidymodels.org/reference/step_corr.html) to our recipe
+> Here we do this manually, but it is also possible to add a [high correlation filter step](https://recipes.tidymodels.org/reference/step_corr.html) to our recipe.
 
-# K-nearest neighbors + some basic routine
+# K-nearest neighbors + routine basics
 
-K-nearest neighbors is a pretty simple algorithm in terms of concept but it already has few hyperparameters that you should understand and try to optimize. It will introduce you to some of the very experimental like routine that machine learning is.
+K-nearest neighbors is a pretty simple algorithm in terms of concept, but it has several hyperparameters that you should understand and try to optimize. It will show you the experimental-like routine that Machine Learning is.
 
-For a classifier, [k-nearest neighbors](https://parsnip.tidymodels.org/reference/nearest_neighbor.html) works as follow.
+For a classifier, [k-nearest neighbors](https://parsnip.tidymodels.org/reference/nearest_neighbor.html) works as follows:
 
-**First the algorithm simply saves the labels that it is given during the training phase**.
+* **First the algorithm simply saves the labels that it is given during the training phase**.
+* Then during the testing phase it takes a testing point and checks its `neighbors` nearest neighbors.
+* **If `neighbors` nearest neighbors are mostly (in majority) from one label, then the tested point will be assigned this label**.
 
-Then during the testing phase it takes a testing point and checks its `neighbors` nearest neighbors.
-
-**If `neighbors` nearest neighbors are mostly (in majority) from one label then the tested point will be assigned this label**.
 
 The way the `neighbors` **nearest neighbors vote** can be either:
 
 - uniform (every point as the same importance in the vote) or,
-- distance-based (a point distant to the tested point by a distance d will have a weight of 1/d in the vote).
+- distance-based (a point at distance d to the testing point will have a weight of 1/d in the vote).
 
 ![schematic representation of KNN voting](../images/knn.png)
 
@@ -127,7 +129,7 @@ blobs <- blobs %>% mutate( label = as.factor(label) )
 ggplot(blobs, aes(x=x,y=y,col=label)) + geom_point()
 ```
 
-fitting a KNN classifier with tidymodel looks like this:
+Fitting a KNN classifier with tidymodel looks like this:
 
 ```{r}
 # https://parsnip.tidymodels.org/reference/nearest_neighbor.html
@@ -143,25 +145,25 @@ Let's look at the effect of the number of neighbors:
 
 ```{r}
 contour_KNN <- function(K,data,...){
-# Make a grid to predict the whole space:
-grid <-
-  crossing(
-    x = seq(-12, 12, length.out = 250),
-    y = seq(-12, 12, length.out = 250)
-  )
-KNN = nearest_neighbor(neighbors = K, 
-                       mode = 'classification',...) %>% 
-  fit( label ~ . , 
-       data = data)
-
-grid$knnres <- bind_cols(predict(KNN, grid))$.pred_class
-
-return(  ggplot(grid, aes(x = x, y = y)) +
-         geom_contour_filled(aes(z = as.numeric(knnres)) ,
-                             breaks=c(0.5,1.5,2.5,3.5))+
-         geom_point(data = blobs , aes(x=x,y=y,col=label)) +
-         ggtitle(paste("number of neighbors: ",K)) )
+  # Make a grid to predict the whole space:
+  grid <-
+    crossing(
+      x = seq(-12, 12, length.out = 250),
+      y = seq(-12, 12, length.out = 250)
+    )
+  KNN = nearest_neighbor(neighbors = K, 
+                         mode = 'classification',...) %>% 
+    fit( label ~ . , 
+         data = data)
   
+  grid$knnres <- bind_cols(predict(KNN, grid))$.pred_class
+  
+  return(  ggplot(grid, aes(x = x, y = y)) +
+           geom_contour_filled(aes(z = as.numeric(knnres)) ,
+                               breaks=c(0.5,1.5,2.5,3.5))+
+           geom_point(data = blobs , aes(x=x,y=y,col=label)) +
+           ggtitle(paste("number of neighbors: ",K)) )
+    
 }
 
 contour_KNN(1,blobs)
@@ -172,45 +174,47 @@ contour_KNN(5,blobs)
 ```
 
 ```{r}
-contour_KNN(89,blobs)
+contour_KNN(85,blobs)
 ```
 
-In the above we varied the number of voters (neighbors) to decide whether a point is from one class or another.
+In the above, we varied the number of voters (neighbors) to decide whether a point is from one class or another.
 
-You can see how the **boundaries are way more wiggly and attentive to missclassification when the number of neighbors is low**.
+You can see how the **boundaries are way more wiggly and attentive to misclassification when the number of neighbors is low**.
 
-But you can also imagine that if **new data is added it is likely to be missclassified** with those kind of too specific boundaries.
+But you can also imagine that if **new data is added, it is likely to be misclassified** with such overly-specific boundaries.
 
-Conversely, when the number of neighbors is very high (120 here), then the **model is not sensitive to point placement**.
+Conversely, when the number of neighbors is very high (85 here), then the **model is not sensitive to point placement**.
 
-This is a first example of the **bias variance trade off.**
+This is a first example of the **bias-variance trade-off.**
 
 We say that:
 
 - the model with k=1 has a **high variance**
-- the model with k=89 has a **high bias**
+- the model with k=85 has a **high bias**
 
 ------------------------------------------------------------------------
 
 Another parameter is **how voting is done**.
 
-This is controled by the `weight_func` argument which defines a *kernel* weighting neighbors according to their distances.
+This is controlled by the `weight_func` argument which defines a *kernel* weighting neighbors according to their distances.
 
-![](https://upload.wikimedia.org/wikipedia/commons/4/47/Kernels.svg)
+![Kernel examples](https://upload.wikimedia.org/wikipedia/commons/4/47/Kernels.svg)
 
-image source: wikipedia user Brian Amberg
+(image source: wikipedia user Brian Amberg)
 
 Choices here are:
 
 - `"rectangular"`: each chosen neighbor votes the same (which is the standard unweighted knn)
 - `"triangular"`: each chosen neighbors has a vote strength inversely proportional to the distance
 - `"epanechnikov"` (or beta(2,2))
-- `"biweight"` (or beta(3,3)),
-- `"triweight"` (or beta(4,4)),
+- `"biweight"` (or beta(3,3))
+- `"triweight"` (or beta(4,4))
 - `"cos"`
 - `"gaussian"`
 - `"inv"`
-- `"optimal"` : the default, a weighting scheme which accounts for the number of input dimensions ([Samworth 2012](https://projecteuclid.org/journals/annals-of-statistics/volume-40/issue-5/Optimal-weighted-nearest-neighbour-classifiers/10.1214/12-AOS1049.full))
+- `"optimal"`: the default, a weighting scheme which accounts for the number of input dimensions ([Samworth 2012](https://projecteuclid.org/journals/annals-of-statistics/volume-40/issue-5/Optimal-weighted-nearest-neighbour-classifiers/10.1214/12-AOS1049.full))
+
+Let's see some examples:
 
 ```{r}
 contour_KNN(5,blobs , weight_func = 'rectangular')
@@ -222,7 +226,7 @@ contour_KNN(5,blobs , weight_func = 'triangular')
 
 Do you see what changed?
 
-So here, connecting this to the previous chapter: K and the weighting, which govern our model bias-variance trade-off and cannot be set directly from the data are **hyper-parameters** of the KNN algorithm.
+Echoing the previous chapter: both K and the weighting, which govern our model bias-variance trade-off, cannot be set directly from the data: they are **hyper-parameters** of the KNN algorithm.
 
 There are many additional hyper-parameters we could consider as well:
 
@@ -235,9 +239,7 @@ There are many additional hyper-parameters we could consider as well:
 
 ### A metric to score classification : accuracy
 
-One straightforward metric to evaluate our model is the accuracy. Accuracy is only interesting on the test set, even though it can give you some good insight about your model when accuracy is compared between test and training set.
-
-But again, the main thing that is going to matter to evaluate your model concern metric evaluated on the test set.
+One straightforward metric to evaluate our model is the accuracy. Accuracy is only meaningful on the test set, though it can give you some good insight about your model when comparing test and training sets.
 
 Accuracy is defined as follow : $\frac{TP+TN}{P+N}$
 
@@ -263,13 +265,11 @@ example %>% accuracy( truth , pred )
 accuracy_vec( example$truth , example$pred )
 ```
 
-### finding the best hyper-parameter set with KNN
+### Finding the best hyper-parameter set with KNN
 
-We implement here the procedure we have seen with the potato dataset in the previous chapter :
+We implement here the procedure we have seen with the potato dataset in the previous chapter, **but** we will have to adapt a few things.
 
-**But** we will have to adapt a few things.
-
-First during the train/test split, we use the `strata` argument to ensure that we have the same proportion of each class in the train and the test set.
+First, during the train/test split, we use the `strata` argument to ensure that we have the same proportion of each class in both the train and the test sets.
 
 ```{r}
 split <- initial_split(blobs, prop = 0.7 , strata = label)
@@ -329,7 +329,10 @@ blobs_res <-
 ```
 
 ```{r}
-## write your solution here
+## write your solution here 
+
+# TODO: remove this later, adding only to knit the file <<<<<<<<
+source("solutions/solution_knn.R") 
 ```
 
 **Correction in `solutions/solution_knn.R`**
@@ -965,7 +968,7 @@ ggplot(blobs , aes(x=x,y=y,col=label)) + geom_point()
 
 To start off, some models are just unsuitable, such as the logistic regression:
 
-```{r}
+```
 LR <- logistic_reg( engine = 'glm' ) %>%
   fit( label ~ . , data = blobs  )
 
