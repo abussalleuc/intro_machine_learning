@@ -289,7 +289,7 @@ Then we proceed with the hyper-parameter optimization.
 
 We re-use the code of the last notebook, **but** (there's always a but), we need to change the metric we are optimizing.
 
-Before we were optimizing for $R^2$, which appropriate for regression tasks, but now we will switch it for **accuracy**.
+Before we were optimizing for $R^2$, which appropriate for regression tasks, but now we will switch it for **accuracy**, which is appropriate for classification.
 
 **micro-exercise:** Change the code below so the tuning :
 
@@ -385,17 +385,17 @@ Note here that the test set very small size (only 9 points per category) which g
 
 > You can read more on this subject in this [blog post](https://www.r-bloggers.com/2021/01/what-is-a-good-test-set-size/).
 
-### important considerations: leakage
+### Important considerations: leakage
 
-The **test set should never be touched until the last step which is the model evaluation**.
+The **test set should never be touched until the last step, ie the model evaluation**.
 
-By doing so we can be confident that our evaluation of the **ability of our model to generalize to new data** is as fair as it can be.
+By doing so, we can be confident that our evaluation of the **ability of our model to generalize to new data** is as fair as it can be.
 
-We say that no information coming from the test set should leak into the training set. If this is the case, we are biasing our understanding of the generalizability of our model.
+We say that no information coming from the test set should **leak** into the training set. If this is the case, we are biasing our understanding of the generalizability of our model.
 
 To avoid **leakage** you should ensure your test set is absent from even the early stages of your pipeline, such as imputation, normalization, or feature selection.
 
-## applying all this to the cancer dataset
+## Applying all this to the cancer dataset
 
 **We first divide our data into a train and a test set:**
 
@@ -468,9 +468,9 @@ So there it is: we have applied cross-validation to explore the space of hyper-p
 
 **Important note:**
 
-But, before we go to the next part, there is one important thing we forgot in this pipeline: like PCA or KMeans, the **KNN algorithm relies on distances** between points.
+Before we go to the next part, there is one important thing we did not mention this time around: like PCA or KMeans, the **KNN algorithm relies on distances** between points.
 
-Meaningful distances can only be computed if all features follow a comparable scale, which is not the case in our cancer dataset:
+Meaningful distances can only be computed if all features follow a comparable scale, which is not the case in our original cancer dataset:
 
 ```{r}
 BreastCancer %>% head()
@@ -479,7 +479,7 @@ BreastCancer %>% head()
 The implementation of KNN that tidymodels relies on does normalization by default, but:
 
 1.  this may not be the case in other models/implementations
-2.  sometimes normalization others than the simple "center and scale" are more relevant
+2.  sometimes normalization methods other than the simple "center and scale" are more relevant
 
 That is why I tend to still put an explicit `step_normalize(all_predictors())` in the recipe.
 
