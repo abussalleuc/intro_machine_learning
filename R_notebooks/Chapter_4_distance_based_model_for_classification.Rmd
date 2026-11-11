@@ -9,16 +9,17 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-In this chapter we will **only talk about classification**. Classifiers associate a transformed set of features to a set of classes (a discrete variable)
+In this chapter, we will **only talk about classification**. Classifiers associate a transformed set of features to a set of classes (a discrete variable).
 
-![classification vs. regression](../images/class_reg.png)
+![Classification vs. regression](../images/class_reg.png)
 
-In this notebook we are going to focus on distance based classification method (opposed to decision tree for example which works with threshold more than actual distances). The goal is to give you some insight on 4 different levels:
+In this notebook, we are going to focus on distance-based classification methods 
+(as opposed to, for example, decision trees, which work with thresholds rather than actual distances). The goal is to give you insight on 4 different levels:
 
 - **Best practices**
 - **Intuition on the concepts behind those methods**
 - **How to implement them with tidymodels**
-- **Intuition on the different parameters that your model need but are not trainable (hyperparameters)**
+- **Intuition on the different parameters that your model needs, but that are not trainable (hyperparameters)**
 
 ```{r}
 library(tidyr)
@@ -28,16 +29,18 @@ library(gridExtra)
 library(pheatmap)
 
 library(tidymodels)
-library(vip)
+library(vip) # install.packages("vip", repos = c("https://bgreenwell.r-universe.dev", "https://cloud.r-project.org"))
+library(kknn) 
 
 library(themis)
+library(glmnet)
 ```
 
 # Meet the data
 
 ## Binary class dataset : breast cancer
 
-In the cancer dataset you have 569 tumors for which many features have been measured. The goal is to predict if the tumor is malignant or not.
+In the cancer dataset, there are 569 tumors for which many image-based features have been measured. The goal is to predict if the tumor is malignant or not.
 
 ```{r}
 BreastCancer <- read.csv("../data/breast_cancer.csv")
@@ -70,39 +73,38 @@ table( BreastCancer$malignant  )
 
 So, there is a slight over-representation of benign tumors.
 
-```{r}
-cor_matrix = cor( BreastCancer[ , -11], method = "pearson" )
+```{r fig.width=6, fig.height=6}
+cor_matrix = cor( 
+  BreastCancer[ , !colnames(BreastCancer) == "malignant" ], method = "pearson" )
 palette <- colorRampPalette(c("blue","white","red"))(100)
 pheatmap(cor_matrix,
          display_numbers = TRUE,
           color=palette, breaks=seq(-1,1,length.out=100))
 ```
 
-So it looks some of these features are extremely correlated, so we may drop some of the most egregious cases
+So it looks some of these features are extremely correlated, so we may drop some of the most egregious cases:
 
 ```{r}
 BreastCancer <- BreastCancer %>% select( !c(mean.area,mean.perimeter,mean.concave.points)  ) 
-
 ```
 
-> here we do this manually, but it is also possible to add a [high correlation filter step](https://recipes.tidymodels.org/reference/step_corr.html) to our recipe
+> Here we do this manually, but it is also possible to add a [high correlation filter step](https://recipes.tidymodels.org/reference/step_corr.html) to our recipe.
 
-# K-nearest neighbors + some basic routine
+# K-nearest neighbors + routine basics
 
-K-nearest neighbors is a pretty simple algorithm in terms of concept but it already has few hyperparameters that you should understand and try to optimize. It will introduce you to some of the very experimental like routine that machine learning is.
+K-nearest neighbors is a pretty simple algorithm in terms of concept, but it has several hyperparameters that you should understand and try to optimize. It will show you the experimental-like routine that Machine Learning is.
 
-For a classifier, [k-nearest neighbors](https://parsnip.tidymodels.org/reference/nearest_neighbor.html) works as follow.
+For a classifier, [k-nearest neighbors](https://parsnip.tidymodels.org/reference/nearest_neighbor.html) works as follows:
 
-**First the algorithm simply saves the labels that it is given during the training phase**.
+* **First the algorithm simply saves the labels that it is given during the training phase**.
+* Then during the testing phase it takes a testing point and checks its `neighbors` nearest neighbors.
+* **If `neighbors` nearest neighbors are mostly (in majority) from one label, then the tested point will be assigned this label**.
 
-Then during the testing phase it takes a testing point and checks its `neighbors` nearest neighbors.
-
-**If `neighbors` nearest neighbors are mostly (in majority) from one label then the tested point will be assigned this label**.
 
 The way the `neighbors` **nearest neighbors vote** can be either:
 
 - uniform (every point as the same importance in the vote) or,
-- distance-based (a point distant to the tested point by a distance d will have a weight of 1/d in the vote).
+- distance-based (a point at distance d to the testing point will have a weight of 1/d in the vote).
 
 ![schematic representation of KNN voting](../images/knn.png)
 
@@ -110,6 +112,7 @@ The way the `neighbors` **nearest neighbors vote** can be either:
 
 ### Toy dataset: KNN concepts and hyperparameters
 
+#### Example data
 ```{r}
 set.seed(123)
 blob1 = data.frame( x = rnorm(30 , mean = -7 ),
@@ -127,7 +130,8 @@ blobs <- blobs %>% mutate( label = as.factor(label) )
 ggplot(blobs, aes(x=x,y=y,col=label)) + geom_point()
 ```
 
-fitting a KNN classifier with tidymodel looks like this:
+#### Fitting a KNN classifier
+Using tidymodel, it looks like this:
 
 ```{r}
 # https://parsnip.tidymodels.org/reference/nearest_neighbor.html
@@ -139,29 +143,30 @@ pred <- KNN %>% predict(new_data = blobs)
 table( blobs$label , pred$.pred_class ) 
 ```
 
-Let's look at the effect of the number of neighbors:
+#### Varying the number of neighbours
+Let's look at the influence of the number of neighbors:
 
 ```{r}
 contour_KNN <- function(K,data,...){
-# Make a grid to predict the whole space:
-grid <-
-  crossing(
-    x = seq(-12, 12, length.out = 250),
-    y = seq(-12, 12, length.out = 250)
-  )
-KNN = nearest_neighbor(neighbors = K, 
-                       mode = 'classification',...) %>% 
-  fit( label ~ . , 
-       data = data)
-
-grid$knnres <- bind_cols(predict(KNN, grid))$.pred_class
-
-return(  ggplot(grid, aes(x = x, y = y)) +
-         geom_contour_filled(aes(z = as.numeric(knnres)) ,
-                             breaks=c(0.5,1.5,2.5,3.5))+
-         geom_point(data = blobs , aes(x=x,y=y,col=label)) +
-         ggtitle(paste("number of neighbors: ",K)) )
+  # Make a grid to predict the whole space:
+  grid <-
+    crossing(
+      x = seq(-12, 12, length.out = 250),
+      y = seq(-12, 12, length.out = 250)
+    )
+  KNN = nearest_neighbor(neighbors = K, 
+                         mode = 'classification',...) %>% 
+    fit( label ~ . , 
+         data = data)
   
+  grid$knnres <- bind_cols(predict(KNN, grid))$.pred_class
+  
+  return(  ggplot(grid, aes(x = x, y = y)) +
+           geom_contour_filled(aes(z = as.numeric(knnres)) ,
+                               breaks=c(0.5,1.5,2.5,3.5))+
+           geom_point(data = blobs , aes(x=x,y=y,col=label)) +
+           ggtitle(paste("number of neighbors: ",K)) )
+    
 }
 
 contour_KNN(1,blobs)
@@ -172,45 +177,48 @@ contour_KNN(5,blobs)
 ```
 
 ```{r}
-contour_KNN(89,blobs)
+contour_KNN(85,blobs)
 ```
 
-In the above we varied the number of voters (neighbors) to decide whether a point is from one class or another.
+In the above, we varied the number of voters (neighbors) to decide whether a point is from one class or another.
 
-You can see how the **boundaries are way more wiggly and attentive to missclassification when the number of neighbors is low**.
+You can see how the **boundaries are way more wiggly and attentive to misclassification when the number of neighbors is low**.
 
-But you can also imagine that if **new data is added it is likely to be missclassified** with those kind of too specific boundaries.
+But you can also imagine that if **new data is added, it is likely to be misclassified** with such overly-specific boundaries.
 
-Conversely, when the number of neighbors is very high (120 here), then the **model is not sensitive to point placement**.
+Conversely, when the number of neighbors is very high (85 here), then the **model is not sensitive to point placement**.
 
-This is a first example of the **bias variance trade off.**
+This is a first example of the **bias-variance trade-off.**
 
 We say that:
 
 - the model with k=1 has a **high variance**
-- the model with k=89 has a **high bias**
+- the model with k=85 has a **high bias**
 
 ------------------------------------------------------------------------
 
+#### Vote weighting
 Another parameter is **how voting is done**.
 
-This is controled by the `weight_func` argument which defines a *kernel* weighting neighbors according to their distances.
+This is controlled by the `weight_func` argument which defines a *kernel* weighting neighbors according to their distances.
 
-![](https://upload.wikimedia.org/wikipedia/commons/4/47/Kernels.svg)
+![Kernel examples](https://upload.wikimedia.org/wikipedia/commons/4/47/Kernels.svg)
 
-image source: wikipedia user Brian Amberg
+(image source: wikipedia user Brian Amberg)
 
 Choices here are:
 
 - `"rectangular"`: each chosen neighbor votes the same (which is the standard unweighted knn)
 - `"triangular"`: each chosen neighbors has a vote strength inversely proportional to the distance
 - `"epanechnikov"` (or beta(2,2))
-- `"biweight"` (or beta(3,3)),
-- `"triweight"` (or beta(4,4)),
+- `"biweight"` (or beta(3,3))
+- `"triweight"` (or beta(4,4))
 - `"cos"`
 - `"gaussian"`
 - `"inv"`
-- `"optimal"` : the default, a weighting scheme which accounts for the number of input dimensions ([Samworth 2012](https://projecteuclid.org/journals/annals-of-statistics/volume-40/issue-5/Optimal-weighted-nearest-neighbour-classifiers/10.1214/12-AOS1049.full))
+- `"optimal"`: the default, a weighting scheme which accounts for the number of input dimensions ([Samworth 2012](https://projecteuclid.org/journals/annals-of-statistics/volume-40/issue-5/Optimal-weighted-nearest-neighbour-classifiers/10.1214/12-AOS1049.full))
+
+Let's see some examples:
 
 ```{r}
 contour_KNN(5,blobs , weight_func = 'rectangular')
@@ -222,7 +230,7 @@ contour_KNN(5,blobs , weight_func = 'triangular')
 
 Do you see what changed?
 
-So here, connecting this to the previous chapter: K and the weighting, which govern our model bias-variance trade-off and cannot be set directly from the data are **hyper-parameters** of the KNN algorithm.
+Echoing the previous chapter: both K and the weighting, which govern our model bias-variance trade-off, cannot be set directly from the data: they are **hyper-parameters** of the KNN algorithm.
 
 There are many additional hyper-parameters we could consider as well:
 
@@ -235,9 +243,7 @@ There are many additional hyper-parameters we could consider as well:
 
 ### A metric to score classification : accuracy
 
-One straightforward metric to evaluate our model is the accuracy. Accuracy is only interesting on the test set, even though it can give you some good insight about your model when accuracy is compared between test and training set.
-
-But again, the main thing that is going to matter to evaluate your model concern metric evaluated on the test set.
+One straightforward metric to evaluate our model is the accuracy. Accuracy is only meaningful on the test set, though it can give you some good insight about your model when comparing test and training sets.
 
 Accuracy is defined as follow : $\frac{TP+TN}{P+N}$
 
@@ -263,13 +269,11 @@ example %>% accuracy( truth , pred )
 accuracy_vec( example$truth , example$pred )
 ```
 
-### finding the best hyper-parameter set with KNN
+### Finding the best hyper-parameter set with KNN
 
-We implement here the procedure we have seen with the potato dataset in the previous chapter :
+We implement here the procedure we have seen with the potato dataset in the previous chapter, **but** we will have to adapt a few things.
 
-**But** we will have to adapt a few things.
-
-First during the train/test split, we use the `strata` argument to ensure that we have the same proportion of each class in the train and the test set.
+First, during the train/test split, we use the `strata` argument to ensure that we have the same proportion of each class in both the train and the test sets.
 
 ```{r}
 split <- initial_split(blobs, prop = 0.7 , strata = label)
@@ -289,7 +293,7 @@ Then we proceed with the hyper-parameter optimization.
 
 We re-use the code of the last notebook, **but** (there's always a but), we need to change the metric we are optimizing.
 
-Before we were optimizing for $R^2$, which appropriate for regression tasks, but now we will switch it for **accuracy**.
+Before we were optimizing for $R^2$, which appropriate for regression tasks, but now we will switch it for **accuracy**, which is appropriate for classification.
 
 **micro-exercise:** Change the code below so the tuning :
 
@@ -329,7 +333,10 @@ blobs_res <-
 ```
 
 ```{r}
-## write your solution here
+## write your solution here 
+
+# TODO: remove this later, adding only to knit the file <<<<<<<<
+source("solutions/solution_knn.R") 
 ```
 
 **Correction in `solutions/solution_knn.R`**
@@ -382,17 +389,17 @@ Note here that the test set very small size (only 9 points per category) which g
 
 > You can read more on this subject in this [blog post](https://www.r-bloggers.com/2021/01/what-is-a-good-test-set-size/).
 
-### important considerations: leakage
+### Important considerations: leakage
 
-The **test set should never be touched until the last step which is the model evaluation**.
+The **test set should never be touched until the last step, ie the model evaluation**.
 
-By doing so we can be confident that our evaluation of the **ability of our model to generalize to new data** is as fair as it can be.
+By doing so, we can be confident that our evaluation of the **ability of our model to generalize to new data** is as fair as it can be.
 
-We say that no information coming from the test set should leak into the training set. If this is the case, we are biasing our understanding of the generalizability of our model.
+We say that no information coming from the test set should **leak** into the training set. If this is the case, we are biasing our understanding of the generalizability of our model.
 
 To avoid **leakage** you should ensure your test set is absent from even the early stages of your pipeline, such as imputation, normalization, or feature selection.
 
-## applying all this to the cancer dataset
+## Applying all this to the cancer dataset
 
 **We first divide our data into a train and a test set:**
 
@@ -465,9 +472,9 @@ So there it is: we have applied cross-validation to explore the space of hyper-p
 
 **Important note:**
 
-But, before we go to the next part, there is one important thing we forgot in this pipeline: like PCA or KMeans, the **KNN algorithm relies on distances** between points.
+Before we go to the next part, there is one important thing we did not mention this time around: like PCA or KMeans, the **KNN algorithm relies on distances** between points.
 
-Meaningful distances can only be computed if all features follow a comparable scale, which is not the case in our cancer dataset:
+Meaningful distances can only be computed if all features follow a comparable scale, which is not the case in our original cancer dataset:
 
 ```{r}
 BreastCancer %>% head()
@@ -476,7 +483,7 @@ BreastCancer %>% head()
 The implementation of KNN that tidymodels relies on does normalization by default, but:
 
 1.  this may not be the case in other models/implementations
-2.  sometimes normalization others than the simple "center and scale" are more relevant
+2.  sometimes normalization methods other than the simple "center and scale" are more relevant
 
 That is why I tend to still put an explicit `step_normalize(all_predictors())` in the recipe.
 
@@ -500,11 +507,11 @@ which translates to
 
 $p(\pmb{x}|y=1)=\frac{1}{1+e^{-(w_{0}+\pmb{x}\cdot\pmb{w})}}$
 
-![logistic regression underlying model](../images/lr.png)
+![Logistic regression: underlying model](../images/lr.png)
 
-**So the probability that your data point is in class 1 is the logistic function (sigmoid) applied to the linear combination of features.** The larger the weights $\pmb{w}$ the steeper the change between the two classes.
+**So the probability that your data point is in class 1 is the logistic function (sigmoid) applied to the linear combination of features.** The larger the weights $\pmb{w}$, the steeper the change between the two classes.
 
-Unlike KNN the logistic regression model provides valuable information on the importance of features for the classification. The bigger the absolute value of the weight $w_{i}$ associated with a feature, the more important this feature is to discriminate between your classes (supposed that features are normalized and mapped onto a similar scale).
+Unlike KNN, the logistic regression model provides valuable information on the importance of features for the classification. The bigger the absolute value of the weight $w_{i}$ associated with a feature, the more important this feature is to discriminating between your classes (assuming features are normalized and mapped onto a similar scale).
 
 Fitting a logistic regression model corresponds to optimizing the loss function
 
@@ -514,15 +521,15 @@ $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y})=\Sigma^{N}_{i=1}y_{i}\log(p(\pmb{x}_
 
 So, now the way we get the $w$ is from fitting our distribution of probability that a point is in class 1. If the number of features is high and there is a significant amount of non-informative features, the fitting procedure can become unstable. What happens is that some weights of non-informative features may become very large in order to minimize the loss function on the training data, which may lead to reduced performance on the test data (overfitting).
 
-In order to avoid this situation we can add a **penalty to the loss function** that prevents weights $w_{i}$ from becoming too large. In ML three such penalties are commonly used:
+In order to avoid this situation, we can add a **penalty to the loss function** that prevents weights $w_{i}$ from becoming too large. In ML, three such penalties are commonly used:
 
-$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}|w_{i}|$ , L1 regularization (Lasso)
+* $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}|w_{i}|$ , L1 regularization (Lasso)
 
-$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}w_{i}^{2}$ , L2 regularization (Ridge)
+* $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}w_{i}^{2}$ , L2 regularization (Ridge)
 
-$\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}(\rho|w_{i}|+(1-\rho)w_{i}^{2})$ , elasticnet
+* $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}(\rho|w_{i}|+(1-\rho)w_{i}^{2})$ , elasticnet
 
-Where $\alpha$ is the weight of the regularization
+Where $\alpha$ is the weight of the regularization.
 
 For a deeper understanding of those notions :
 
@@ -530,11 +537,10 @@ For a deeper understanding of those notions :
 
 - **L1 (lasso)** regularization produces many zero weights. It is useful for the case where you suspect that only a few features are informative.
 
-- **L2 (ridge)** regularization leads to many features with small, but non-zero weights.
-
+- **L2 (ridge)** regularization leads to many features with small, but non-zero weights.  
 The L1 regularization may have more bias, and the L2 more variance.
 
-The elasticnet interpolates between these two situations at the cost of having and additional parameter $\rho$.
+- The elasticnet interpolates between these two situations at the cost of having and additional parameter $\rho$.
 
 Let's look at the probability curve of a logistic regression on a simplified version of the cancer data where we keep a single feature:
 
@@ -560,8 +566,8 @@ for(P in c(0.01,0.1,0.5)){
     add_recipe( recipe_radius ) %>% 
     fit( data = BC_train  )
   
-  mock_data[ paste0('pred_',P)  ] <- (radius_wf %>% predict( mock_data , 
-                                                             type='prob'  ))$.pred_1 
+  mock_data[ paste0('pred_',P)  ] <- (
+    radius_wf %>% predict( mock_data , type='prob'  ))$.pred_1 
   
 }
 
@@ -575,7 +581,7 @@ ggplot(mock_data_long , aes( x = mean.radius , y = proba , col = penalty ) ) +
 
 ```
 
-## logistic regression on the breast cancer dataset
+## Logistic regression on the breast cancer dataset
 
 ```{r}
 breast_recipe <- recipe( malignant ~ . , data = BC_train) %>%
@@ -638,7 +644,7 @@ Let's check how the logistic regression actually discriminates the two classes w
 
 Or said differently : **what can we learn from our model**, apart from pure classification?
 
-In logistic regression the importances are derived from the model coefficients. We could extract them manually, but alternatively the `vip` (**v**ariable **i**mportance **p**lots) can help us.
+In logistic regression, the variable importances are derived from the model coefficients. We could extract them manually, but alternatively the `vip` (**v**ariable **i**mportance **p**lots) can help us.
 
 ```{r}
 ## choose a combination of hyperparameter
@@ -696,15 +702,15 @@ for(P in c(0.01,0.1,1)){
     add_recipe( recipe_b2 ) %>% 
     fit( data = blobs2  )
   
-  mock_data[ paste0('pred_',P)  ] <- (blobs2_wf %>% predict( mock_data , 
-                                                             type='prob'  ))$.pred_A
+  mock_data[ paste0('pred_',P)  ] <- 
+    (blobs2_wf %>% predict( mock_data , type='prob'  ))$.pred_A
   
 }
 
 
-mock_data_long <- pivot_longer(mock_data, 
-                               3:5 , 
-                               names_to ="penalty" , values_to = 'proba' ) 
+mock_data_long <- pivot_longer(
+  mock_data, 3:5 , 
+  names_to ="penalty" , values_to = 'proba' ) 
 
 ggplot(mock_data_long , aes( x = x , y = proba , col = penalty ) ) +
   geom_line()
@@ -738,7 +744,7 @@ conf_mat( table( truth , pred ) )
 
 So, most of the class A samples are miss-classified (22/30), but we still get a very high accuracy...
 
-That is because, by construction, both the **logistic regression and accuracy score do not differentiate False Positive and False Negative**.
+That is because, by construction, both the **logistic regression and accuracy score do not differentiate False Positives and False Negatives**.
 
 And the problem gets worse the more imbalance there is :
 
@@ -768,6 +774,8 @@ tmp = data.frame( n2_ratio = n2_ratio ,
 ggplot(tmp , aes(x=n2_ratio,y=value , col=metric)) + geom_line()
 ```
 
+Other metrics that consider FPs and FNs can be used in situations such as this:
+
 ```{r}
 
 n2_ratio = c()
@@ -792,14 +800,17 @@ for( n2 in seq(5,300,5) ){
   
 }
 
-tmp = data.frame( n2_ratio , acc, rec, bal_acc,f1 ) %>% pivot_longer( 2:5 , 
-                                                                      names_to = 'metric',
-                                                                      values_to = 'value')
+tmp = data.frame( n2_ratio , acc, rec, bal_acc,f1 ) %>% pivot_longer( 
+  2:5 , 
+  names_to = 'metric',
+  values_to = 'value')
 
 ggplot(tmp , aes(x=n2_ratio,y=value , col=metric)) + geom_line()
 ```
 
-### setting the event of interest
+These do not necessarily help with the imbalance itself, though.
+
+### Setting the event of interest
 
 Some metrics like specificity, recall, f1 score, or ROC AUC are dependent on the label of interest.
 
@@ -820,15 +831,15 @@ print(paste('recall class B:',recall_vec(truth , pred , event_level = 'second'))
 conf_mat(table(truth,pred))
 ```
 
-### remedy1: case weight
+### Remedy 1: case weight
 
-Some methods and metrics allow you to re-weight the different data points can influence them.
+Some methods and metrics allow you to re-weight the different data points.
 
 By giving a higher importance to point of a given class, we can bias our model toward that class.
 
 If we do this by giving more importance to the rarer class and less to the more frequent, we can *correct* the imbalance bias.
 
-This is similar to indicating to our model that making error with the rare class cost more than doing error with the frequent class.
+This is similar to indicating to our model that making mistakes with the rare class cost more than making mistakes with the frequent class.
 
 ```{r}
 blobs2 = make2blobs(300,30)
@@ -869,9 +880,9 @@ print(paste('recall class B:',recall_vec(truth , pred , event_level = 'second'))
 conf_mat( table( truth , pred ) )
 ```
 
-### remedy2: sub/over-sampling
+### Remedy 2: sub/over-sampling
 
-the recipe step `step_rose()` (from the [themis](https://themis.tidymodels.org/index.html) library) can balance your data by creating synthetic new samples, sampled in the neighborhood of existing data points.
+The recipe step `step_rose()` (from the [themis](https://themis.tidymodels.org/index.html) library) can balance your data by creating synthetic new samples using the ROSE approach, sampled in the neighborhood of existing data points.
 
 Simpler alternative exists, such as:
 
@@ -948,11 +959,11 @@ blobs_roc_curve %>% autoplot()
 blobs_roc_curve[ which(blobs_roc_curve$.threshold >= 0.5)[1] , ]
 ```
 
-### multiclass context
+### Multiclass context
 
-Many of the models and metrics base definition are based on a binary context (0/1, control/treatment, benign/malignant), and sometimes on a single specific category of interest (recall, roc auc, f1,...).
+Many of the models and metrics base definitions are based on a binary context (0/1, control/treatment, benign/malignant), and sometimes on a single specific category of interest (recall, roc auc, f1,...).
 
-But often we are in context where we have more than two categories to consider.
+In practice, we often deal with contexts with more than two categories.
 
 ```{r}
 cat = rep(c(1,2,3),c(60,30,20)) 
@@ -963,9 +974,9 @@ blobs = data.frame( x = rnorm( 100  ) + cat,
 ggplot(blobs , aes(x=x,y=y,col=label)) + geom_point()
 ```
 
-To start off, some models are just unsuitable, such as the logistic regression:
+To start off, some models are just unsuitable in this situation, such as the logistic regression:
 
-```{r}
+```
 LR <- logistic_reg( engine = 'glm' ) %>%
   fit( label ~ . , data = blobs  )
 
@@ -981,21 +992,21 @@ LR <- multinom_reg( penalty = 0.05, engine = 'glmnet' ) %>%
 table( LR %>% predict( blobs ) )
 ```
 
-For metrics, we have to consider several possibilities when in a multiclass scenario:
+In a multiclass scenario, we have to consider several possibilities regarding metrics :
 
-- **no change** : accuracy for example, extends naturally to multiclass (because it does not differentiate between types of errors)
+- **no change** : accuracy for example, extends naturally to multiclass (because it does not differentiate between types of errors).
 
-- **macro-averaging** : compute the metric independently for each class, and then average the results. NB: all classes get the same weight
+- **macro-averaging** : compute the metric independently for each class, and then average the results. NB: all classes get the same weight.
 
-- **weighted macro-averaging** : same as macro-average, but the class metrics are weighted by the number of observation in each class
+- **weighted macro-averaging** : same as macro-average, but the class metrics are weighted by the number of observations in each class.
 
-- **micro-averaging** : determines counts of TP,FN, ... independently, then pulls these numbers across all classes to compute a metric
+- **micro-averaging** : determines counts of TP,FN, ... independently, then pulls these numbers across all classes to compute a metric.
 
-- **specific implementation**: some metrics have their special multiclass algorithm. You will have to check their specific documentation to know more
+- **specific implementation**: some metrics have a special multiclass algorithm. You will have to check their specific documentation to know more.
 
 Micro-averaging and weighted macro-averaging will give more importance to the most frequent classes. (Unweighted) macro-averaging "corrects" this by giving equal weight to each classes.
 
-Note that in some case this correction is desirable, but in some others it may not be appropriate (e.g, where you just care about the number of errors irrespective of the class).
+Note that in some cases this correction is desirable, but in some others it may not be appropriate (e.g, where you just care about the number of errors irrespective of the class).
 
 ```{r}
 ## augment the data with the model predictions
@@ -1040,11 +1051,11 @@ Similarly, when plotting a ROC curve we have to adapt to the multiclass setting:
 lr_blobs_aug %>% roc_curve( truth = label, c(.pred_1, .pred_2, .pred_3) ) %>% autoplot()
 ```
 
-## micro-exercise: logistic-regression
+## Micro-exercise: logistic regression
 
 Now that you know about imbalance, adapt the code below to optimize the hyper-parameters of a logistic regression classifier on the cancer dataset to optimize the F1 score and properly account for imbalance.
 
-> **IMPORTANT NOTE:** you may get some warning about precision computation in some case. These are caused by some high penalty values. You can generally ignore them as long as at least some of the penalty values in the grid produce some results.
+> **IMPORTANT NOTE:** you may get some warnings about precision computation in some cases. These are caused by some high penalty values. You can generally ignore them as long as at least some of the penalty values in the grid produce some results.
 
 ```{r}
 breast_recipe <- recipe( malignant ~ . , data = BC_train) %>%
