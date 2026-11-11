@@ -32,7 +32,7 @@ bricks of more powerful algorithms called **ensemble algorithms**.
 
 # Meet the data
 
-## Binary class dataset : breast cancer
+## Binary class dataset: breast cancer
 
 In the cancer dataset there are 569 tumors for which many features have
 been measured. The goal is to predict if the tumor is malignant or not.
@@ -75,7 +75,7 @@ where a yes or no question divides the data into 2 subsets which
 minimizes an **impurity measure**.
 
 Imagine you have a dataset with feature color (red or blue) and feature
-shape (square or circle), and 2 target classes : 1 and 2.
+shape (square or circle), and 2 target classes: 1 and 2.
 
 ![2 trees can be built from this data](../images/Tree.png)
 
@@ -130,7 +130,7 @@ Before going further, just a little bit of vocabulary:
 - A **branch** is the outcome of a splitting.
 - A **leaf** is the last node on a branch (no more splitting).
 
-## Toy data : exploring hyperparameters
+## Toy data: exploring hyperparameters
 
 Let explore some hyperparameters of this method, in particular with the
 default `rpart` engine. As you will see in these examples, they act like
@@ -183,7 +183,7 @@ arguments of the rpart decision tree:
 
 Let's see how it looks with more lax hyper-parameters.
 
-No `cost_complexity` :
+No `cost_complexity`:
 
 ```{r}
 DT = decision_tree(engine = 'rpart' , mode = 'classification',
@@ -341,9 +341,9 @@ final_DT %>%
   vi()
 ```
 
-## Exercise : Decision tree
+## Exercise: Decision tree
 
-plot the tree corresponding to the best model found above with
+Plot the tree corresponding to the best model found above with
 `plot_tree()` and interpret it.
 
 ```{r}
@@ -353,7 +353,7 @@ plot the tree corresponding to the best model found above with
 
 # Random Forest
 
-the Random Forest algorithm relies on two main concepts :
+The Random Forest algorithm relies on two main concepts:
 
 1.  **randomly producing/training many different trees**
 2.  **agglomerating the predictions** of all these trees (mainly
@@ -367,19 +367,21 @@ The randomness between trees concerns:
 
 **Bootstrapping:** sampling methods in which you randomly draw a
 subsample from your data, *with replacement*. The created replicate is
-the same size as the original distribution.
+the same size as the original dataset.
 
 I am sure you can see intuitively how that is going to help
 generalization of our model.
 
 So now on top of all the parameters seen before to create each
-individual trees of the forest, you also have a parameter controlling
+individual tree of the forest, you also have a parameter controlling
 the number of trees in your forest.
 
 > In the following plots we will compare the results of a random forest
-> with a single decision tree with the same hyperparameter values
+> with a single decision tree with the same hyperparameter values.
 
-![visualization of a random forest](../images/RF.png)
+![Visualization of a random forest](../images/RF.png)
+
+## Random forest on a toy dataset
 
 ```{r}
 RF = rand_forest(
@@ -394,7 +396,7 @@ RF = rand_forest(
 RF %>% predict( blobs , type = 'prob') # type = 'prob' to get the probability of each class
 ```
 
-```{r}
+```{r fig.width=7, fig.height=6}
 ## small function to show how the random forest partitions the space 
 contour_random_forest <- function( RF ,data, event){
   # Make a grid to predict the whole space:
@@ -407,7 +409,9 @@ contour_random_forest <- function( RF ,data, event){
   grid$RFres <- pull(RF %>% predict( grid , type = 'prob'), paste0('.pred_',event))
   print(grid%>%head())
   return( ggplot(grid, aes(x = x, y = y)) +
-            geom_contour_filled( aes(z = RFres) , breaks =  seq(0,1.01,length.out=11) ) +
+            # geom_raster(aes(fill = RFres)) +
+            geom_contour_filled( aes(z = RFres) , 
+                                 breaks =  seq(0,1+1e-12,length.out=11) ) +
             geom_point(data = data , aes(x=x,y=y,col=label)) +
             ggtitle( paste('class',event) )
            )
@@ -425,8 +429,9 @@ space.
 breast_model <- rand_forest(
   mode = "classification",
   trees = tune(),
-  min_n = tune()
-  )  %>% # mtry is the square root of the number of features, we can keep it as is.
+  min_n = tune(),
+  mtry = NULL # mtry is by default the square root of the number of features
+  )  %>% 
   set_engine( engine = 'ranger', importance = "impurity" ) ## important to get the feature importance later
 
 breast_wf <- 
@@ -455,7 +460,7 @@ breast_RF_res %>%
 ```
 
 ```{r}
-## choose a combination of hyperparameter
+## choose a combination of hyperparameters
 best_model <- breast_RF_res %>% select_best(metric = "roc_auc")
 
 final_RF <- breast_wf %>% 
@@ -475,7 +480,7 @@ table( test_predictions$malignant , test_predictions$.pred_class )
 roc_curve(test_predictions , .pred_1 , truth = malignant  ) %>% autoplot()
 ```
 
-With decision tree, we can still get feature importance (by looking at
+With a random forest, we can still get feature importance (by looking at
 how much the nodes using each feature decrease impurity in the tree).
 
 ```{r}
@@ -486,9 +491,9 @@ final_RF %>%
 
 It is also always possible to get feature importances using
 permutations: they are obtained by monitoring how model performance
-decrease when a single feature is shuffled.
+decreases when a single feature is shuffled.
 
-> NB: this method works for all models, even the black box ones
+> NB: this method works for all models, even the black box ones.
 
 ```{r}
 library(vip)
@@ -519,7 +524,7 @@ ggplot(perm_scores, aes(x = reorder(Variable, Importance), y = Importance)) +
 # Exercise: predicting 10 year coronary heart disease outcome
 
 The [framingham dataset](https://datacatalog.med.nyu.edu/dataset/10046)
-links some patient features to their risk to develop a heart disease.
+links some patient features to their risk of heart disease.
 
 ```{r}
 framingham = read.csv( '../data/framingham.csv' )
@@ -539,7 +544,7 @@ str(framingham)
 ------------------------------------------------------------------------
 
 Build and optimize a Random Forest to predict the column `'TenYearCHD'`
-(dependent variable : ten year risk of coronary heart disease).
+(dependent variable: ten year risk of coronary heart disease).
 
 > You can start and adapt from the previous notebook exercise's
 > correction if you want
