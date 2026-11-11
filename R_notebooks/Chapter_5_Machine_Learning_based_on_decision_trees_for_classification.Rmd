@@ -63,12 +63,13 @@ sequence of questions** on your features that can be answered by yes or
 no, subdividing the data into 2 subgroups on which a new
 question is asked, and so on.
 
-![decision tree vocabulary (left) and example (right)](../images/tree_ex.png)
+![Decision tree vocabulary (left) and example (right)](../images/tree_ex.png)
 
-How does the algorithm chose on which feature it should base a new
+
+How does the algorithm choose on which feature it should base a new
 decision node?
 
-Quite simply: it **tests all the features and chooses the most
+Quite simply: it **tests all the features and selects the most
 discriminative** (with respect to your target variable), ie the feature
 where a yes or no question divides the data into 2 subsets which
 minimizes an **impurity measure**.
@@ -107,7 +108,7 @@ dataset.
 ------------------------------------------------------------------------
 
 The **impurity is related to how much your feature splitting is still
-having mixed classes**. So the impurity ends up giving a score: the
+having mixed classes**. Several impurity metrics exist; here, we cover the
 [Gini coefficient](https://en.wikipedia.org/wiki/Gini_coefficient).
 
 #### Gini coefficient
@@ -132,7 +133,7 @@ Before going further, just a little bit of vocabulary:
 ## Toy data : exploring hyperparameters
 
 Let explore some hyperparameters of this method, in particular with the
-default `rpart` engine. As you will see in those examples, they act like
+default `rpart` engine. As you will see in these examples, they act like
 a regularization:
 
 - `tree_depth`: the maximum number of consecutive questions to ask.
@@ -311,7 +312,7 @@ breast_DT_res %>%
 ```
 
 ```{r}
-## choose a combination of hyperparameter
+## choose a combination of hyperparameters
 best_model <- breast_DT_res %>% select_best(metric = "roc_auc")
 
 final_DT <- breast_wf %>% 
@@ -331,7 +332,7 @@ table( test_predictions$malignant , test_predictions$.pred_class )
 roc_curve(test_predictions , .pred_1 , truth = malignant  ) %>% autoplot()
 ```
 
-With decision tree, we can still get feature importance (by looking at
+With a decision tree, we can still extract feature importance (by looking at
 how much the nodes using each feature decrease impurity in the tree).
 
 ```{r}
