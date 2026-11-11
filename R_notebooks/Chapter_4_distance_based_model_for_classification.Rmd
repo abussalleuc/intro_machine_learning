@@ -13,8 +13,7 @@ In this chapter, we will **only talk about classification**. Classifiers associa
 
 ![Classification vs. regression](../images/class_reg.png)
 
-In this notebook, we are going to focus on distance-based classification methods 
-(as opposed to, for example, decision trees, which work with thresholds rather than actual distances). The goal is to give you insight on 4 different levels:
+In this notebook, we are going to focus on distance-based classification methods (as opposed to, for example, decision trees, which work with thresholds rather than actual distances). The goal is to give you insight on 4 different levels:
 
 - **Best practices**
 - **Intuition on the concepts behind those methods**
@@ -96,10 +95,9 @@ K-nearest neighbors is a pretty simple algorithm in terms of concept, but it has
 
 For a classifier, [k-nearest neighbors](https://parsnip.tidymodels.org/reference/nearest_neighbor.html) works as follows:
 
-* **First the algorithm simply saves the labels that it is given during the training phase**.
-* Then during the testing phase it takes a testing point and checks its `neighbors` nearest neighbors.
-* **If `neighbors` nearest neighbors are mostly (in majority) from one label, then the tested point will be assigned this label**.
-
+- **First the algorithm simply saves the labels that it is given during the training phase**.
+- Then during the testing phase it takes a testing point and checks its `neighbors` nearest neighbors.
+- **If `neighbors` nearest neighbors are mostly (in majority) from one label, then the tested point will be assigned this label**.
 
 The way the `neighbors` **nearest neighbors vote** can be either:
 
@@ -113,6 +111,7 @@ The way the `neighbors` **nearest neighbors vote** can be either:
 ### Toy dataset: KNN concepts and hyperparameters
 
 #### Example data
+
 ```{r}
 set.seed(123)
 blob1 = data.frame( x = rnorm(30 , mean = -7 ),
@@ -131,6 +130,7 @@ ggplot(blobs, aes(x=x,y=y,col=label)) + geom_point()
 ```
 
 #### Fitting a KNN classifier
+
 Using tidymodel, it looks like this:
 
 ```{r}
@@ -144,6 +144,7 @@ table( blobs$label , pred$.pred_class )
 ```
 
 #### Varying the number of neighbours
+
 Let's look at the influence of the number of neighbors:
 
 ```{r}
@@ -198,6 +199,7 @@ We say that:
 ------------------------------------------------------------------------
 
 #### Vote weighting
+
 Another parameter is **how voting is done**.
 
 This is controlled by the `weight_func` argument which defines a *kernel* weighting neighbors according to their distances.
@@ -335,8 +337,7 @@ blobs_res <-
 ```{r}
 ## write your solution here 
 
-# TODO: remove this later, adding only to knit the file <<<<<<<<
-source("solutions/solution_knn.R") 
+
 ```
 
 **Correction in `solutions/solution_knn.R`**
@@ -523,11 +524,11 @@ So, now the way we get the $w$ is from fitting our distribution of probability t
 
 In order to avoid this situation, we can add a **penalty to the loss function** that prevents weights $w_{i}$ from becoming too large. In ML, three such penalties are commonly used:
 
-* $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}|w_{i}|$ , L1 regularization (Lasso)
+- $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}|w_{i}|$ , L1 regularization (Lasso)
 
-* $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}w_{i}^{2}$ , L2 regularization (Ridge)
+- $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}w_{i}^{2}$ , L2 regularization (Ridge)
 
-* $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}(\rho|w_{i}|+(1-\rho)w_{i}^{2})$ , elasticnet
+- $\mathcal{L}(\pmb{w},w_{0},\pmb{X},\pmb{y}) + \alpha\Sigma^{N}_{i=1}(\rho|w_{i}|+(1-\rho)w_{i}^{2})$ , elasticnet
 
 Where $\alpha$ is the weight of the regularization.
 
@@ -537,8 +538,8 @@ For a deeper understanding of those notions :
 
 - **L1 (lasso)** regularization produces many zero weights. It is useful for the case where you suspect that only a few features are informative.
 
-- **L2 (ridge)** regularization leads to many features with small, but non-zero weights.  
-The L1 regularization may have more bias, and the L2 more variance.
+- **L2 (ridge)** regularization leads to many features with small, but non-zero weights.\
+  The L1 regularization may have more bias, and the L2 more variance.
 
 - The elasticnet interpolates between these two situations at the cost of having and additional parameter $\rho$.
 
@@ -937,6 +938,8 @@ lr_res <- fit_resamples(
 collect_metrics(lr_res)
 ```
 
+> **There is no free lunch**: up-sampling methods such as ROSE (or [SMOTE](https://themis.tidymodels.org/reference/step_smote.html)) can nicely complement your unbalanced data but you should be aware that they rely on some assumptions regarding the geometry of your data and may generate weird synthetic samples in low-density areas of your feature space.
+
 ### ROC curve
 
 ```{r}
@@ -976,7 +979,7 @@ ggplot(blobs , aes(x=x,y=y,col=label)) + geom_point()
 
 To start off, some models are just unsuitable in this situation, such as the logistic regression:
 
-```
+```         
 LR <- logistic_reg( engine = 'glm' ) %>%
   fit( label ~ . , data = blobs  )
 

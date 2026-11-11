@@ -323,7 +323,7 @@ VI %>% ggplot( aes(x=Importance, y=Variable, fill=Sign) ) +
 
 You can also use the KNN algorithm for regression. Again you get the K nearest neighbors of the point you want to predict but this time instead of a vote it does a local average of the neighbors value (again weighted or not by their distance to your query point).
 
-**micro-exercise:** complete the code below to train a KNN regressor model for the methylation data. Optimize the `n_neighbors` and `weights` hyper-parameters:
+**micro-exercise:** complete the code below to train a KNN regressor model for the methylation data. Optimize the `neighbors` and `weight_func` hyper-parameters:
 
 ```{r}
 R = recipe( df_meth , Age ~ . ) %>%

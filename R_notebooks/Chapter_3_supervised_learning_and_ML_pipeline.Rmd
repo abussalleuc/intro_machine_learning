@@ -89,7 +89,7 @@ For this, we will introduce some syntax elements from [parsnip](https://parsnip.
 
 ------------------------------------------------------------------------
 
-[parsnip](https://parsnip.tidymodels.org/) is a library that implements wrappers for many Machine Learning models, offering a unified interface that let you inegrate many models in ML routines without having to write custom code each time.
+[parsnip](https://parsnip.tidymodels.org/) is a library that implements wrappers for many Machine Learning models, offering a unified interface that let you integrate many models in ML routines without having to write custom code each time.
 
 In parsnip, you instantiate a model from a broad family, and set its `engine`, which represents the specific implementation you want.
 
@@ -193,8 +193,6 @@ $$y\_pred_i = \beta_1 * X1_{i} + \beta_2 * X2_{i} + ... + \beta_n * Xn_{i} $$
 **Regularization** is a way to reduce overfitting, and in the case of the linear model, we apply it by adding to this function a **penalization term which depends on coefficient weights** (*ie* on the $\beta_x$).
 
 In brief, the larger the coefficient, the higher the penalization. This way, only coefficients which bring more fit than penalization will be kept.
-
-> Note : we report here the formulas used in `scikit-learn` functions. Other libraries may have different parameterizations, but the concepts stay the same.
 
 - **l1 regularization** (Lasso): $\frac{1}{2n}\sum_i (y_i-f(\pmb X_i,\pmb{\beta}))^2 + \alpha\sum_{j}|\beta_{j}|$, $\alpha$ being the weight that you put on the regularization.
 
